@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Web3ProviderError, ProviderNotFoundError, } from './types';
-import { DEFAULT_CONFIG, ERROR_CODES } from './constants';
-import { detectProviders, setupProviderEventListeners, safeProviderRequest, isValidAddress, isValidChainId, } from './providerUtils';
-import { createWalletActions } from './walletActions';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.useWeb3Provider = useWeb3Provider;
+const react_1 = require("react");
+const types_1 = require("./types");
+const constants_1 = require("./constants");
+const providerUtils_1 = require("./providerUtils");
+const walletActions_1 = require("./walletActions");
 /**
  * A comprehensive hook for managing Web3 providers with enhanced error handling,
  * retry mechanisms, and comprehensive wallet functionality.
@@ -40,30 +43,30 @@ import { createWalletActions } from './walletActions';
  * });
  * ```
  */
-export function useWeb3Provider(config = {}) {
+function useWeb3Provider(config = {}) {
     // State management
-    const [providers, setProviders] = useState([]);
-    const [currentProvider, setCurrentProvider] = useState(null);
-    const [accounts, setAccounts] = useState([]);
-    const [chainId, setChainId] = useState(null);
-    const [status, setStatus] = useState('disconnected');
-    const [error, setError] = useState(null);
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [isDetecting, setIsDetecting] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [providers, setProviders] = (0, react_1.useState)([]);
+    const [currentProvider, setCurrentProvider] = (0, react_1.useState)(null);
+    const [accounts, setAccounts] = (0, react_1.useState)([]);
+    const [chainId, setChainId] = (0, react_1.useState)(null);
+    const [status, setStatus] = (0, react_1.useState)('disconnected');
+    const [error, setError] = (0, react_1.useState)(null);
+    const [isConnecting, setIsConnecting] = (0, react_1.useState)(false);
+    const [isDetecting, setIsDetecting] = (0, react_1.useState)(false);
+    const [isModalOpen, setIsModalOpen] = (0, react_1.useState)(false);
     // Refs for cleanup and retry management
-    const cleanupRef = useRef(null);
-    const retryCountRef = useRef(0);
-    const intervalRef = useRef(null);
+    const cleanupRef = (0, react_1.useRef)(null);
+    const retryCountRef = (0, react_1.useRef)(0);
+    const intervalRef = (0, react_1.useRef)(null);
     // Merge with default config
-    const mergedConfig = useMemo(() => {
+    const mergedConfig = (0, react_1.useMemo)(() => {
         const configValues = {
-            ...DEFAULT_CONFIG,
+            ...constants_1.DEFAULT_CONFIG,
             ...config,
-            checkInterval: config.checkInterval ?? DEFAULT_CONFIG.checkInterval ?? 0,
-            maxRetries: config.maxRetries ?? DEFAULT_CONFIG.maxRetries ?? 3,
-            requestTimeout: config.requestTimeout ?? DEFAULT_CONFIG.requestTimeout ?? 30000,
-            debug: config.debug ?? DEFAULT_CONFIG.debug ?? false,
+            checkInterval: config.checkInterval ?? constants_1.DEFAULT_CONFIG.checkInterval ?? 0,
+            maxRetries: config.maxRetries ?? constants_1.DEFAULT_CONFIG.maxRetries ?? 3,
+            requestTimeout: config.requestTimeout ?? constants_1.DEFAULT_CONFIG.requestTimeout ?? 30000,
+            debug: config.debug ?? constants_1.DEFAULT_CONFIG.debug ?? false,
         };
         // Immediately enable debug for wallet actions if requested
         if (configValues.debug) {
@@ -77,7 +80,7 @@ export function useWeb3Provider(config = {}) {
         return configValues;
     }, [config]);
     // Enhanced debug logging utility
-    const debugLog = useCallback((message, data) => {
+    const debugLog = (0, react_1.useCallback)((message, data) => {
         if (mergedConfig.debug) {
             // Enable debug for wallet actions
             if (typeof window !== 'undefined') {
@@ -94,7 +97,7 @@ export function useWeb3Provider(config = {}) {
         }
     }, [mergedConfig.debug]);
     // Detailed connection logging
-    const debugConnection = useCallback((stage, details = {}) => {
+    const debugConnection = (0, react_1.useCallback)((stage, details = {}) => {
         if (mergedConfig.debug) {
             console.group(`🔌 Connection: ${stage}`);
             console.table({
@@ -108,21 +111,21 @@ export function useWeb3Provider(config = {}) {
         }
     }, [mergedConfig.debug, status]);
     // Error handling utility
-    const handleError = useCallback((error, context) => {
-        const web3Error = error instanceof Web3ProviderError
+    const handleError = (0, react_1.useCallback)((error, context) => {
+        const web3Error = error instanceof types_1.Web3ProviderError
             ? error
-            : new Web3ProviderError(error.message || 'Unknown error occurred', ERROR_CODES.INTERNAL_ERROR, { originalError: error, context });
+            : new types_1.Web3ProviderError(error.message || 'Unknown error occurred', constants_1.ERROR_CODES.INTERNAL_ERROR, { originalError: error, context });
         setError(web3Error);
         setStatus('error');
         mergedConfig.onError?.(web3Error);
         debugLog('Error occurred', { error: web3Error, context });
     }, [mergedConfig, debugLog]);
     // Enhanced provider detection with callback support
-    const detectProvidersCallback = useCallback(() => {
+    const detectProvidersCallback = (0, react_1.useCallback)(() => {
         setIsDetecting(true);
         setError(null);
         try {
-            const detected = detectProviders();
+            const detected = (0, providerUtils_1.detectProviders)();
             debugLog('Providers detected', {
                 count: detected.length,
                 providers: detected.map(p => p.name),
@@ -149,7 +152,7 @@ export function useWeb3Provider(config = {}) {
         }
     }, [mergedConfig, debugLog, handleError]);
     // Retry mechanism for failed operations
-    const retryOperation = useCallback(async (operation, context, maxRetries = mergedConfig.maxRetries) => {
+    const retryOperation = (0, react_1.useCallback)(async (operation, context, maxRetries = mergedConfig.maxRetries) => {
         let lastError;
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
@@ -180,7 +183,7 @@ export function useWeb3Provider(config = {}) {
         throw lastError;
     }, [mergedConfig.maxRetries, debugLog]);
     // Effect for initial detection and ongoing monitoring
-    useEffect(() => {
+    (0, react_1.useEffect)(() => {
         debugLog('Setting up provider monitoring', {
             checkInterval: mergedConfig.checkInterval,
         });
@@ -276,7 +279,7 @@ export function useWeb3Provider(config = {}) {
         debugLog,
     ]);
     // Connect to a specific provider with enhanced error handling and retry logic
-    const connect = useCallback(async (name) => {
+    const connect = (0, react_1.useCallback)(async (name) => {
         setIsConnecting(true);
         setError(null);
         setStatus('connecting');
@@ -307,7 +310,7 @@ export function useWeb3Provider(config = {}) {
                         name,
                         available: latestProviders.map(p => p.name),
                     });
-                    throw new ProviderNotFoundError(name);
+                    throw new types_1.ProviderNotFoundError(name);
                 }
                 debugConnection('Provider validation successful', {
                     name,
@@ -316,14 +319,14 @@ export function useWeb3Provider(config = {}) {
                     providerType: provider.constructor?.name || 'Unknown',
                 });
                 if (typeof provider.request !== 'function') {
-                    throw new Web3ProviderError(`Provider "${name}" does not support EIP-1193 requests`, ERROR_CODES.UNSUPPORTED_METHOD, { providerName: name });
+                    throw new types_1.Web3ProviderError(`Provider "${name}" does not support EIP-1193 requests`, constants_1.ERROR_CODES.UNSUPPORTED_METHOD, { providerName: name });
                 }
                 // Clean up previous listeners
                 if (cleanupRef.current) {
                     cleanupRef.current();
                 }
                 // Setup event listeners with enhanced error handling
-                const cleanupListeners = setupProviderEventListeners(provider, {
+                const cleanupListeners = (0, providerUtils_1.setupProviderEventListeners)(provider, {
                     onAccountsChanged: newAccounts => {
                         debugLog('Accounts changed event fired', {
                             accounts: newAccounts,
@@ -357,9 +360,9 @@ export function useWeb3Provider(config = {}) {
                     onDisconnect: err => {
                         debugLog('Provider disconnected', { error: err });
                         const error = err instanceof Error ? err : new Error(JSON.stringify(err));
-                        const web3Error = error instanceof Web3ProviderError
+                        const web3Error = error instanceof types_1.Web3ProviderError
                             ? error
-                            : new Web3ProviderError(error.message || 'Provider disconnected', ERROR_CODES.NETWORK_ERROR, { originalError: error });
+                            : new types_1.Web3ProviderError(error.message || 'Provider disconnected', constants_1.ERROR_CODES.NETWORK_ERROR, { originalError: error });
                         setError(web3Error);
                         setStatus('disconnected');
                         setCurrentProvider(null);
@@ -375,7 +378,7 @@ export function useWeb3Provider(config = {}) {
                 cleanupRef.current = cleanupListeners;
                 debugConnection('Requesting accounts', { name });
                 // Create wallet actions to request accounts in the proper location
-                const walletActions = createWalletActions(provider, mergedConfig);
+                const walletActions = (0, walletActions_1.createWalletActions)(provider, mergedConfig);
                 debugLog('📋 Requesting accounts through wallet actions...');
                 // Request accounts through wallet actions (proper separation of concerns)
                 const accounts = await walletActions.requestAccounts();
@@ -397,10 +400,10 @@ export function useWeb3Provider(config = {}) {
                     // If direct request fails, try with safeProviderRequest as fallback
                     try {
                         debugLog('Direct eth_chainId request failed, trying safeProviderRequest fallback');
-                        chainId = await safeProviderRequest(provider, 'eth_chainId', [], mergedConfig.requestTimeout);
+                        chainId = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_chainId', [], mergedConfig.requestTimeout);
                     }
                     catch (fallbackError) {
-                        throw new Web3ProviderError(error.message || 'Failed to get chain ID', ERROR_CODES.JSON_RPC_ERROR, {
+                        throw new types_1.Web3ProviderError(error.message || 'Failed to get chain ID', constants_1.ERROR_CODES.JSON_RPC_ERROR, {
                             method: 'eth_chainId',
                             originalError: error,
                             fallbackError: fallbackError.message
@@ -443,7 +446,7 @@ export function useWeb3Provider(config = {}) {
         handleError,
     ]);
     // Disconnect from current provider with proper cleanup
-    const disconnect = useCallback(() => {
+    const disconnect = (0, react_1.useCallback)(() => {
         if (!currentProvider) {
             debugLog('No provider to disconnect');
             return;
@@ -468,7 +471,7 @@ export function useWeb3Provider(config = {}) {
         }
     }, [currentProvider, debugLog, handleError]);
     // Get preferred provider with enhanced logic
-    const getPreferredProvider = useCallback(() => {
+    const getPreferredProvider = (0, react_1.useCallback)(() => {
         debugLog('Getting preferred provider', {
             preferred: mergedConfig.preferred,
             available: providers.map(p => p.name),
@@ -488,26 +491,26 @@ export function useWeb3Provider(config = {}) {
         return undefined;
     }, [providers, mergedConfig, debugLog]);
     // Get provider by name
-    const getProviderByName = useCallback((name) => {
+    const getProviderByName = (0, react_1.useCallback)((name) => {
         const provider = providers.find(p => p.name === name);
         debugLog('Getting provider by name', { name, found: !!provider });
         return provider?.provider;
     }, [providers, debugLog]);
     // Clear error function
-    const clearError = useCallback(() => {
+    const clearError = (0, react_1.useCallback)(() => {
         setError(null);
         if (status === 'error') {
             setStatus('disconnected');
         }
     }, [status]);
     // Modal functions
-    const openModal = useCallback(() => {
+    const openModal = (0, react_1.useCallback)(() => {
         setIsModalOpen(true);
     }, []);
-    const closeModal = useCallback(() => {
+    const closeModal = (0, react_1.useCallback)(() => {
         setIsModalOpen(false);
     }, []);
-    const handleModalProviderSelect = useCallback(async (providerName) => {
+    const handleModalProviderSelect = (0, react_1.useCallback)(async (providerName) => {
         try {
             await connect(providerName);
             closeModal();
@@ -518,7 +521,7 @@ export function useWeb3Provider(config = {}) {
         }
     }, [connect, closeModal]);
     // Utility functions for address formatting and validation
-    const weiToEth = useCallback((wei) => {
+    const weiToEth = (0, react_1.useCallback)((wei) => {
         try {
             const weiNum = BigInt(wei);
             const ethNum = Number(weiNum) / Math.pow(10, 18);
@@ -528,7 +531,7 @@ export function useWeb3Provider(config = {}) {
             return '0';
         }
     }, []);
-    const ethToWei = useCallback((eth) => {
+    const ethToWei = (0, react_1.useCallback)((eth) => {
         try {
             const ethNum = parseFloat(eth);
             const weiNum = BigInt(Math.floor(ethNum * Math.pow(10, 18)));
@@ -538,27 +541,27 @@ export function useWeb3Provider(config = {}) {
             return '0';
         }
     }, []);
-    const formatAddress = useCallback((address) => {
-        if (!isValidAddress(address)) {
+    const formatAddress = (0, react_1.useCallback)((address) => {
+        if (!(0, providerUtils_1.isValidAddress)(address)) {
             return address; // Return as-is if invalid
         }
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
     }, []);
     // Utils for common validation functions
-    const utils = useMemo(() => ({
-        isValidAddress,
-        isValidChainId,
+    const utils = (0, react_1.useMemo)(() => ({
+        isValidAddress: providerUtils_1.isValidAddress,
+        isValidChainId: providerUtils_1.isValidChainId,
         formatAddress,
         weiToEth,
         ethToWei,
-    }), [isValidAddress, isValidChainId, formatAddress, weiToEth, ethToWei]);
+    }), [providerUtils_1.isValidAddress, providerUtils_1.isValidChainId, formatAddress, weiToEth, ethToWei]);
     // Wallet actions with enhanced error handling
-    const walletActions = useMemo(() => {
+    const walletActions = (0, react_1.useMemo)(() => {
         if (!currentProvider?.provider) {
             return null;
         }
         try {
-            const actions = createWalletActions(currentProvider.provider, mergedConfig);
+            const actions = (0, walletActions_1.createWalletActions)(currentProvider.provider, mergedConfig);
             // Wrap all async actions with error handling
             const wrappedActions = {};
             Object.keys(actions).forEach(key => {

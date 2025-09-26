@@ -1,6 +1,9 @@
-import { Web3ProviderError, ProviderNotConnectedError, InvalidAccountError, TransactionError, NetworkError, } from './types';
-import { safeProviderRequest, isValidAddress, isValidChainId, } from './providerUtils';
-import { ERROR_CODES, DEFAULT_NETWORK } from './constants';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createWalletActions = void 0;
+const types_1 = require("./types");
+const providerUtils_1 = require("./providerUtils");
+const constants_1 = require("./constants");
 /**
  * Utility to convert wei to ether
  */
@@ -21,17 +24,17 @@ const ethToWei = (eth) => {
  * Utility to format address for display
  */
 const formatAddress = (address) => {
-    if (!isValidAddress(address)) {
-        throw new InvalidAccountError(address);
+    if (!(0, providerUtils_1.isValidAddress)(address)) {
+        throw new types_1.InvalidAccountError(address);
     }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 /**
  * Creates comprehensive wallet actions for a provider
  */
-export const createWalletActions = (provider, config) => {
+const createWalletActions = (provider, config) => {
     if (!provider || typeof provider.request !== 'function') {
-        throw new ProviderNotConnectedError();
+        throw new types_1.ProviderNotConnectedError();
     }
     // Debug logging helper for wallet actions
     const debugWalletAction = (action, details = {}) => {
@@ -96,7 +99,7 @@ export const createWalletActions = (provider, config) => {
                 try {
                     // First attempt: use safeProviderRequest wrapper
                     debugWalletAction('Attempting direct safeProviderRequest...');
-                    accounts = await safeProviderRequest(provider, 'eth_requestAccounts', [], config?.requestTimeout || 30000);
+                    accounts = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_requestAccounts', [], config?.requestTimeout || 30000);
                     debugWalletAction('safeProviderRequest succeeded', { accounts });
                 }
                 catch (primaryError) {
@@ -150,7 +153,7 @@ export const createWalletActions = (provider, config) => {
                                 });
                                 // MetaMask wallet_selectEthereumProvider is failing during provider selection dialog
                                 // This happens when multiple extensions are installed and MetaMask can't choose
-                                throw new Web3ProviderError('MetaMask provider selection dialog failed - please retry connection', ERROR_CODES.USER_REJECTED, {
+                                throw new types_1.Web3ProviderError('MetaMask provider selection dialog failed - please retry connection', constants_1.ERROR_CODES.USER_REJECTED, {
                                     originalError: err.message,
                                     walletSelectionFailure: true,
                                     suggestions: [
@@ -176,7 +179,7 @@ export const createWalletActions = (provider, config) => {
                             });
                         }
                         else {
-                            throw new Web3ProviderError('Direct request returned no accounts', ERROR_CODES.UNAUTHORIZED, { result, method: 'eth_requestAccounts' });
+                            throw new types_1.Web3ProviderError('Direct request returned no accounts', constants_1.ERROR_CODES.UNAUTHORIZED, { result, method: 'eth_requestAccounts' });
                         }
                     }
                     catch (fallbackError) {
@@ -197,7 +200,7 @@ export const createWalletActions = (provider, config) => {
                         if (fallbackError.message?.includes('evmAsk') ||
                             primaryError.message?.includes('evmAsk') ||
                             (primaryError.stack && primaryError.stack.includes('evmAsk'))) {
-                            throw new Web3ProviderError('MetaMask internal error (evmAsk.js) - please try refreshing the page or reconnecting', ERROR_CODES.INTERNAL_ERROR, {
+                            throw new types_1.Web3ProviderError('MetaMask internal error (evmAsk.js) - please try refreshing the page or reconnecting', constants_1.ERROR_CODES.INTERNAL_ERROR, {
                                 originalError: primaryError,
                                 suggestions: [
                                     'Refresh page',
@@ -217,7 +220,7 @@ export const createWalletActions = (provider, config) => {
                 });
                 if (!Array.isArray(accounts) || accounts.length === 0) {
                     debugWalletAction('No accounts returned', { accounts });
-                    throw new Web3ProviderError('No accounts returned from provider', ERROR_CODES.UNAUTHORIZED, { method: 'eth_requestAccounts' });
+                    throw new types_1.Web3ProviderError('No accounts returned from provider', constants_1.ERROR_CODES.UNAUTHORIZED, { method: 'eth_requestAccounts' });
                 }
                 debugWalletAction('Accounts successfully retrieved', {
                     count: accounts.length,
@@ -231,7 +234,7 @@ export const createWalletActions = (provider, config) => {
                     message: error?.message || 'No message',
                     code: error?.code || 'No code',
                     stack: error?.stack?.substring(0, 500) || 'No stack',
-                    isTargetError: error instanceof Web3ProviderError,
+                    isTargetError: error instanceof types_1.Web3ProviderError,
                     providerInfo: {
                         hasRequest: typeof provider?.request === 'function',
                         isConnected: provider?.isConnected
@@ -241,7 +244,7 @@ export const createWalletActions = (provider, config) => {
                     },
                 });
                 if (error.code === 4001) {
-                    const rejectionError = new Web3ProviderError('User rejected the request', ERROR_CODES.USER_REJECTED, { method: 'eth_requestAccounts' });
+                    const rejectionError = new types_1.Web3ProviderError('User rejected the request', constants_1.ERROR_CODES.USER_REJECTED, { method: 'eth_requestAccounts' });
                     debugWalletAction('User rejection detected');
                     throw rejectionError;
                 }
@@ -263,7 +266,7 @@ export const createWalletActions = (provider, config) => {
                         fallbackError: fallbackError.message,
                         originalError: error.message,
                     });
-                    throw new Web3ProviderError(error.message || 'Failed to request accounts', ERROR_CODES.JSON_RPC_ERROR, { method: 'eth_requestAccounts', originalError: error });
+                    throw new types_1.Web3ProviderError(error.message || 'Failed to request accounts', constants_1.ERROR_CODES.JSON_RPC_ERROR, { method: 'eth_requestAccounts', originalError: error });
                 }
             }
         },
@@ -272,18 +275,18 @@ export const createWalletActions = (provider, config) => {
          */
         getNetwork: async () => {
             try {
-                const chainId = await safeProviderRequest(provider, 'eth_chainId');
-                if (!isValidChainId(chainId)) {
-                    throw new NetworkError('Invalid chain ID received', chainId);
+                const chainId = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_chainId');
+                if (!(0, providerUtils_1.isValidChainId)(chainId)) {
+                    throw new types_1.NetworkError('Invalid chain ID received', chainId);
                 }
                 // For default network, return specific network info
-                if (chainId === DEFAULT_NETWORK.chainId) {
+                if (chainId === constants_1.DEFAULT_NETWORK.chainId) {
                     return {
                         chainId,
-                        name: DEFAULT_NETWORK.chainName,
-                        rpcUrl: DEFAULT_NETWORK.rpcUrls[0] || '',
-                        blockExplorerUrl: DEFAULT_NETWORK.blockExplorerUrls[0] || '',
-                        nativeCurrency: DEFAULT_NETWORK.nativeCurrency,
+                        name: constants_1.DEFAULT_NETWORK.chainName,
+                        rpcUrl: constants_1.DEFAULT_NETWORK.rpcUrls[0] || '',
+                        blockExplorerUrl: constants_1.DEFAULT_NETWORK.blockExplorerUrls[0] || '',
+                        nativeCurrency: constants_1.DEFAULT_NETWORK.nativeCurrency,
                     };
                 }
                 // For other networks, return basic info
@@ -293,7 +296,7 @@ export const createWalletActions = (provider, config) => {
                 };
             }
             catch {
-                throw new NetworkError('Failed to get network information', undefined);
+                throw new types_1.NetworkError('Failed to get network information', undefined);
             }
         },
         /**
@@ -301,21 +304,21 @@ export const createWalletActions = (provider, config) => {
          */
         getAccount: async () => {
             try {
-                const accounts = await safeProviderRequest(provider, 'eth_accounts');
+                const accounts = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_accounts');
                 if (!accounts || accounts.length === 0) {
-                    throw new Web3ProviderError('No accounts found', ERROR_CODES.UNAUTHORIZED);
+                    throw new types_1.Web3ProviderError('No accounts found', constants_1.ERROR_CODES.UNAUTHORIZED);
                 }
                 const account = accounts[0];
-                if (!account || !isValidAddress(account)) {
-                    throw new InvalidAccountError(account || '');
+                if (!account || !(0, providerUtils_1.isValidAddress)(account)) {
+                    throw new types_1.InvalidAccountError(account || '');
                 }
                 return account;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to get account', ERROR_CODES.INTERNAL_ERROR, { error });
+                throw new types_1.Web3ProviderError('Failed to get account', constants_1.ERROR_CODES.INTERNAL_ERROR, { error });
             }
         },
         /**
@@ -323,17 +326,17 @@ export const createWalletActions = (provider, config) => {
          */
         getAccounts: async () => {
             try {
-                const accounts = await safeProviderRequest(provider, 'eth_accounts');
+                const accounts = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_accounts');
                 if (!Array.isArray(accounts)) {
-                    throw new Web3ProviderError('Invalid accounts response', ERROR_CODES.INTERNAL_ERROR);
+                    throw new types_1.Web3ProviderError('Invalid accounts response', constants_1.ERROR_CODES.INTERNAL_ERROR);
                 }
-                return accounts.filter(account => isValidAddress(account));
+                return accounts.filter(account => (0, providerUtils_1.isValidAddress)(account));
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to get accounts', ERROR_CODES.INTERNAL_ERROR, { error });
+                throw new types_1.Web3ProviderError('Failed to get accounts', constants_1.ERROR_CODES.INTERNAL_ERROR, { error });
             }
         },
         /**
@@ -342,10 +345,10 @@ export const createWalletActions = (provider, config) => {
         getBalance: async (address) => {
             try {
                 const targetAddress = address || (await actions.getAccount());
-                if (!targetAddress || !isValidAddress(targetAddress)) {
-                    throw new InvalidAccountError(targetAddress || '');
+                if (!targetAddress || !(0, providerUtils_1.isValidAddress)(targetAddress)) {
+                    throw new types_1.InvalidAccountError(targetAddress || '');
                 }
-                const balance = await safeProviderRequest(provider, 'eth_getBalance', [targetAddress, 'latest']);
+                const balance = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_getBalance', [targetAddress, 'latest']);
                 return {
                     address: targetAddress,
                     balance,
@@ -353,10 +356,10 @@ export const createWalletActions = (provider, config) => {
                 };
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to get balance', ERROR_CODES.INTERNAL_ERROR, { error, address });
+                throw new types_1.Web3ProviderError('Failed to get balance', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, address });
             }
         },
         /**
@@ -365,17 +368,17 @@ export const createWalletActions = (provider, config) => {
         getTransactionCount: async (address) => {
             try {
                 const targetAddress = address || (await actions.getAccount());
-                if (!targetAddress || !isValidAddress(targetAddress)) {
-                    throw new InvalidAccountError(targetAddress || '');
+                if (!targetAddress || !(0, providerUtils_1.isValidAddress)(targetAddress)) {
+                    throw new types_1.InvalidAccountError(targetAddress || '');
                 }
-                const count = await safeProviderRequest(provider, 'eth_getTransactionCount', [targetAddress, 'latest']);
+                const count = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_getTransactionCount', [targetAddress, 'latest']);
                 return parseInt(count, 16);
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to get transaction count', ERROR_CODES.INTERNAL_ERROR, { error, address });
+                throw new types_1.Web3ProviderError('Failed to get transaction count', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, address });
             }
         },
         /**
@@ -383,19 +386,19 @@ export const createWalletActions = (provider, config) => {
          */
         estimateGas: async (transaction) => {
             try {
-                const gasLimit = await safeProviderRequest(provider, 'eth_estimateGas', [transaction]);
+                const gasLimit = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_estimateGas', [transaction]);
                 // Get current gas price
-                const gasPrice = await safeProviderRequest(provider, 'eth_gasPrice');
+                const gasPrice = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_gasPrice');
                 return {
                     gasLimit,
                     gasPrice,
                 };
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to estimate gas', ERROR_CODES.INTERNAL_ERROR, { error, transaction });
+                throw new types_1.Web3ProviderError('Failed to estimate gas', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, transaction });
             }
         },
         /**
@@ -405,30 +408,30 @@ export const createWalletActions = (provider, config) => {
             try {
                 // Enhanced input validation and sanitization
                 if (!message || typeof message !== 'string') {
-                    throw new Web3ProviderError('Invalid message - must be a non-empty string', ERROR_CODES.INVALID_PARAMS, { message });
+                    throw new types_1.Web3ProviderError('Invalid message - must be a non-empty string', constants_1.ERROR_CODES.INVALID_PARAMS, { message });
                 }
                 // SECURITY: Sanitize message length to prevent abuse
                 const MAX_MESSAGE_LENGTH = 10000;
                 if (message.length > MAX_MESSAGE_LENGTH) {
-                    throw new Web3ProviderError(`Message too long - maximum ${MAX_MESSAGE_LENGTH} characters allowed`, ERROR_CODES.INVALID_PARAMS, { messageLength: message.length, maxLength: MAX_MESSAGE_LENGTH });
+                    throw new types_1.Web3ProviderError(`Message too long - maximum ${MAX_MESSAGE_LENGTH} characters allowed`, constants_1.ERROR_CODES.INVALID_PARAMS, { messageLength: message.length, maxLength: MAX_MESSAGE_LENGTH });
                 }
                 // Remove potential dangerous content patterns
                 const sanitizedMessage = message.trim();
                 if (!sanitizedMessage) {
-                    throw new Web3ProviderError('Message cannot be empty after sanitization', ERROR_CODES.INVALID_PARAMS, { message });
+                    throw new types_1.Web3ProviderError('Message cannot be empty after sanitization', constants_1.ERROR_CODES.INVALID_PARAMS, { message });
                 }
                 const from = await actions.getAccount();
                 if (!from) {
-                    throw new Web3ProviderError('No account available for signing', ERROR_CODES.UNAUTHORIZED);
+                    throw new types_1.Web3ProviderError('No account available for signing', constants_1.ERROR_CODES.UNAUTHORIZED);
                 }
-                const signature = await safeProviderRequest(provider, 'personal_sign', [sanitizedMessage, from]);
+                const signature = await (0, providerUtils_1.safeProviderRequest)(provider, 'personal_sign', [sanitizedMessage, from]);
                 return signature;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to sign message', ERROR_CODES.INTERNAL_ERROR, { error, message });
+                throw new types_1.Web3ProviderError('Failed to sign message', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, message });
             }
         },
         /**
@@ -437,20 +440,20 @@ export const createWalletActions = (provider, config) => {
         signTypedData: async (typedData) => {
             try {
                 if (!typedData) {
-                    throw new Web3ProviderError('Invalid typed data', ERROR_CODES.INVALID_PARAMS, { typedData });
+                    throw new types_1.Web3ProviderError('Invalid typed data', constants_1.ERROR_CODES.INVALID_PARAMS, { typedData });
                 }
                 const from = await actions.getAccount();
                 if (!from) {
-                    throw new Web3ProviderError('No account available for signing', ERROR_CODES.UNAUTHORIZED);
+                    throw new types_1.Web3ProviderError('No account available for signing', constants_1.ERROR_CODES.UNAUTHORIZED);
                 }
-                const signature = await safeProviderRequest(provider, 'eth_signTypedData_v4', [from, typedData]);
+                const signature = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_signTypedData_v4', [from, typedData]);
                 return signature;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError('Failed to sign typed data', ERROR_CODES.INTERNAL_ERROR, { error, typedData });
+                throw new types_1.Web3ProviderError('Failed to sign typed data', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, typedData });
             }
         },
         /**
@@ -459,18 +462,18 @@ export const createWalletActions = (provider, config) => {
         sendTransaction: async (transaction) => {
             try {
                 // Enhanced transaction validation
-                if (!transaction.from || !isValidAddress(transaction.from)) {
-                    throw new InvalidAccountError(transaction.from || '');
+                if (!transaction.from || !(0, providerUtils_1.isValidAddress)(transaction.from)) {
+                    throw new types_1.InvalidAccountError(transaction.from || '');
                 }
-                if (transaction.to && !isValidAddress(transaction.to)) {
-                    throw new InvalidAccountError(transaction.to);
+                if (transaction.to && !(0, providerUtils_1.isValidAddress)(transaction.to)) {
+                    throw new types_1.InvalidAccountError(transaction.to);
                 }
                 // SECURITY: Validate transaction values
                 if (transaction.value) {
                     const value = BigInt(transaction.value);
                     const MAX_WEI = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
                     if (value > MAX_WEI) {
-                        throw new Web3ProviderError('Transaction value too large', ERROR_CODES.INVALID_PARAMS, { value: transaction.value });
+                        throw new types_1.Web3ProviderError('Transaction value too large', constants_1.ERROR_CODES.INVALID_PARAMS, { value: transaction.value });
                     }
                 }
                 // SECURITY: Validate gas values
@@ -478,7 +481,7 @@ export const createWalletActions = (provider, config) => {
                     const gas = BigInt(transaction.gas);
                     const MAX_GAS = BigInt('0xfffffffff'); // ~68 billion gas limit
                     if (gas > MAX_GAS) {
-                        throw new Web3ProviderError('Gas limit too high', ERROR_CODES.INVALID_PARAMS, { gas: transaction.gas });
+                        throw new types_1.Web3ProviderError('Gas limit too high', constants_1.ERROR_CODES.INVALID_PARAMS, { gas: transaction.gas });
                     }
                 }
                 // Get nonce if not provided
@@ -493,14 +496,14 @@ export const createWalletActions = (provider, config) => {
                         transaction.gas = gasEstimate.gasLimit;
                     }
                 }
-                const txHash = await safeProviderRequest(provider, 'eth_sendTransaction', [transaction]);
+                const txHash = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_sendTransaction', [transaction]);
                 return txHash;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new TransactionError('Failed to send transaction', undefined);
+                throw new types_1.TransactionError('Failed to send transaction', undefined);
             }
         },
         /**
@@ -509,19 +512,19 @@ export const createWalletActions = (provider, config) => {
         getTransactionReceipt: async (txHash) => {
             try {
                 if (!txHash || typeof txHash !== 'string') {
-                    throw new Web3ProviderError('Invalid transaction hash', ERROR_CODES.INVALID_PARAMS, { txHash });
+                    throw new types_1.Web3ProviderError('Invalid transaction hash', constants_1.ERROR_CODES.INVALID_PARAMS, { txHash });
                 }
-                const receipt = await safeProviderRequest(provider, 'eth_getTransactionReceipt', [txHash]);
+                const receipt = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_getTransactionReceipt', [txHash]);
                 if (!receipt) {
-                    throw new TransactionError('Transaction not found or not mined yet', txHash);
+                    throw new types_1.TransactionError('Transaction not found or not mined yet', txHash);
                 }
                 return receipt;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new TransactionError('Failed to get transaction receipt', txHash);
+                throw new types_1.TransactionError('Failed to get transaction receipt', txHash);
             }
         },
         /**
@@ -535,10 +538,10 @@ export const createWalletActions = (provider, config) => {
                 return receipt;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new TransactionError('Failed to wait for transaction', txHash);
+                throw new types_1.TransactionError('Failed to wait for transaction', txHash);
             }
         },
         /**
@@ -546,24 +549,24 @@ export const createWalletActions = (provider, config) => {
          */
         switchToDefaultNetwork: async () => {
             try {
-                await safeProviderRequest(provider, 'wallet_switchEthereumChain', [
-                    { chainId: DEFAULT_NETWORK.chainId },
+                await (0, providerUtils_1.safeProviderRequest)(provider, 'wallet_switchEthereumChain', [
+                    { chainId: constants_1.DEFAULT_NETWORK.chainId },
                 ]);
             }
             catch (error) {
                 // If the network is not added, try to add it
                 if (error.code === 4902) {
                     try {
-                        await safeProviderRequest(provider, 'wallet_addEthereumChain', [
-                            DEFAULT_NETWORK,
+                        await (0, providerUtils_1.safeProviderRequest)(provider, 'wallet_addEthereumChain', [
+                            constants_1.DEFAULT_NETWORK,
                         ]);
                     }
                     catch {
-                        throw new NetworkError('Failed to add default network', DEFAULT_NETWORK.chainId);
+                        throw new types_1.NetworkError('Failed to add default network', constants_1.DEFAULT_NETWORK.chainId);
                     }
                 }
                 else {
-                    throw new NetworkError('Failed to switch to default network', DEFAULT_NETWORK.chainId);
+                    throw new types_1.NetworkError('Failed to switch to default network', constants_1.DEFAULT_NETWORK.chainId);
                 }
             }
         },
@@ -573,14 +576,14 @@ export const createWalletActions = (provider, config) => {
          */
         customRequest: async (method, params = []) => {
             try {
-                const result = await safeProviderRequest(provider, method, params);
+                const result = await (0, providerUtils_1.safeProviderRequest)(provider, method, params);
                 return result;
             }
             catch (error) {
-                if (error instanceof Web3ProviderError) {
+                if (error instanceof types_1.Web3ProviderError) {
                     throw error;
                 }
-                throw new Web3ProviderError(`Custom request failed: ${method}`, ERROR_CODES.JSON_RPC_ERROR, { method, params });
+                throw new types_1.Web3ProviderError(`Custom request failed: ${method}`, constants_1.ERROR_CODES.JSON_RPC_ERROR, { method, params });
             }
         },
         /**
@@ -590,9 +593,10 @@ export const createWalletActions = (provider, config) => {
             weiToEth,
             ethToWei,
             formatAddress,
-            isValidAddress,
-            isValidChainId,
+            isValidAddress: providerUtils_1.isValidAddress,
+            isValidChainId: providerUtils_1.isValidChainId,
         },
     };
     return actions;
 };
+exports.createWalletActions = createWalletActions;

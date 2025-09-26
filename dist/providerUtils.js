@@ -1,9 +1,12 @@
-import { Web3ProviderError, } from './types';
-import { PROVIDER_PATTERNS, ERROR_CODES, } from './constants';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.safeProviderRequest = exports.createTimeoutPromise = exports.setupProviderEventListeners = exports.detectProviders = exports.detectProviderCapabilities = exports.isValidChainId = exports.isValidAddress = void 0;
+const types_1 = require("./types");
+const constants_1 = require("./constants");
 /**
  * Validates if an address is a valid Ethereum address
  */
-export const isValidAddress = (address) => {
+const isValidAddress = (address) => {
     // Enhanced validation: check basic format and checksum
     if (!address || typeof address !== 'string') {
         return false;
@@ -16,10 +19,11 @@ export const isValidAddress = (address) => {
     // would require additional libraries but basic format is secure enough
     return true;
 };
+exports.isValidAddress = isValidAddress;
 /**
  * Validates if a chain ID is valid
  */
-export const isValidChainId = (chainId) => {
+const isValidChainId = (chainId) => {
     if (!chainId || typeof chainId !== 'string') {
         return false;
     }
@@ -29,10 +33,11 @@ export const isValidChainId = (chainId) => {
     const hasReasonableLength = chainId.length >= 3 && chainId.length <= 64; // Max 256-bit hex
     return isValidHex && isNotZero && hasReasonableLength;
 };
+exports.isValidChainId = isValidChainId;
 /**
  * Detects provider capabilities
  */
-export const detectProviderCapabilities = (provider) => {
+const detectProviderCapabilities = (provider) => {
     return {
         supportsEIP1559: typeof provider.request === 'function',
         supportsPersonalSign: typeof provider.request === 'function',
@@ -42,16 +47,17 @@ export const detectProviderCapabilities = (provider) => {
         version: provider.networkVersion || 'unknown',
     };
 };
+exports.detectProviderCapabilities = detectProviderCapabilities;
 /**
  * Detects the providers that are available in the current environment.
  * @returns An array of detected providers.
  */
-export const detectProviders = () => {
+const detectProviders = () => {
     if (typeof window === 'undefined')
         return [];
     const detected = [];
     // Check each provider pattern
-    Object.entries(PROVIDER_PATTERNS).forEach(([name, pattern]) => {
+    Object.entries(constants_1.PROVIDER_PATTERNS).forEach(([name, pattern]) => {
         const provider = window[pattern.windowProperty];
         if (provider && typeof provider.request === 'function') {
             // Additional validation for specific providers
@@ -59,7 +65,7 @@ export const detectProviders = () => {
                 detected.push({
                     name: name,
                     provider,
-                    capabilities: detectProviderCapabilities(provider),
+                    capabilities: (0, exports.detectProviderCapabilities)(provider),
                     isConnected: provider.isConnected?.() || false,
                     version: provider.networkVersion || 'unknown',
                 });
@@ -69,7 +75,7 @@ export const detectProviders = () => {
                 detected.push({
                     name: name,
                     provider,
-                    capabilities: detectProviderCapabilities(provider),
+                    capabilities: (0, exports.detectProviderCapabilities)(provider),
                     isConnected: provider.isConnected?.() || false,
                     version: provider.networkVersion || 'unknown',
                 });
@@ -78,13 +84,14 @@ export const detectProviders = () => {
     });
     return detected;
 };
+exports.detectProviders = detectProviders;
 /**
  * Sets up event listeners for a provider.
  * @param provider - The provider to set up event listeners for.
  * @param config - The configuration for the provider.
  * @returns A function to remove the event listeners.
  */
-export const setupProviderEventListeners = (provider, config) => {
+const setupProviderEventListeners = (provider, config) => {
     if (!provider.on)
         return () => { };
     const handleAccountsChanged = (newAccounts) => {
@@ -97,7 +104,7 @@ export const setupProviderEventListeners = (provider, config) => {
                     : [];
             if (accountsArray.length >= 0) {
                 // Valid even if empty array
-                const validAccounts = accountsArray.filter(account => account && typeof account === 'string' && isValidAddress(account));
+                const validAccounts = accountsArray.filter(account => account && typeof account === 'string' && (0, exports.isValidAddress)(account));
                 console.log('✅ Accounts changed event:', {
                     original: newAccounts,
                     valid: validAccounts,
@@ -106,12 +113,12 @@ export const setupProviderEventListeners = (provider, config) => {
             }
             else {
                 console.warn('⚠️ Invalid accounts changed event:', newAccounts);
-                config.onError?.(new Web3ProviderError('Invalid accounts format in accountsChanged event', ERROR_CODES.INVALID_PARAMS, { accounts: newAccounts }));
+                config.onError?.(new types_1.Web3ProviderError('Invalid accounts format in accountsChanged event', constants_1.ERROR_CODES.INVALID_PARAMS, { accounts: newAccounts }));
             }
         }
         catch (error) {
             console.error('❌ Error in accounts changed handler:', error);
-            config.onError?.(new Web3ProviderError('Error handling accounts changed event', ERROR_CODES.INTERNAL_ERROR, { error, accounts: newAccounts }));
+            config.onError?.(new types_1.Web3ProviderError('Error handling accounts changed event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, accounts: newAccounts }));
         }
     };
     const handleChainChanged = (newChainId) => {
@@ -119,23 +126,23 @@ export const setupProviderEventListeners = (provider, config) => {
             console.log('🔗 Chain changed event received:', newChainId);
             // Validate chain ID with comprehensive checks
             if (newChainId && typeof newChainId === 'string') {
-                if (isValidChainId(newChainId)) {
+                if ((0, exports.isValidChainId)(newChainId)) {
                     console.log('✅ Chain changed event valid, calling callback');
                     config.onChainChanged?.(newChainId);
                 }
                 else {
                     console.warn('⚠️ Invalid chain ID format:', newChainId);
-                    config.onError?.(new Web3ProviderError('Invalid chain ID format received', ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
+                    config.onError?.(new types_1.Web3ProviderError('Invalid chain ID format received', constants_1.ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
                 }
             }
             else {
                 console.warn('⚠️ Invalid chain changed event format:', typeof newChainId, newChainId);
-                config.onError?.(new Web3ProviderError('Invalid chain ID data type', ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
+                config.onError?.(new types_1.Web3ProviderError('Invalid chain ID data type', constants_1.ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
             }
         }
         catch (error) {
             console.error('❌ Error in chain changed handler:', error);
-            config.onError?.(new Web3ProviderError('Error handling chain changed event', ERROR_CODES.INTERNAL_ERROR, { error, chainId: newChainId }));
+            config.onError?.(new types_1.Web3ProviderError('Error handling chain changed event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, chainId: newChainId }));
         }
     };
     const handleDisconnect = (err) => {
@@ -144,7 +151,7 @@ export const setupProviderEventListeners = (provider, config) => {
             config.onDisconnect?.(error);
         }
         catch (error) {
-            config.onError?.(new Web3ProviderError('Error handling disconnect event', ERROR_CODES.INTERNAL_ERROR, { error, originalError: err }));
+            config.onError?.(new types_1.Web3ProviderError('Error handling disconnect event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, originalError: err }));
         }
     };
     const handleConnect = (connectInfo) => {
@@ -153,7 +160,7 @@ export const setupProviderEventListeners = (provider, config) => {
             console.log('Provider connected:', connectInfo);
         }
         catch (error) {
-            config.onError?.(new Web3ProviderError('Error handling connect event', ERROR_CODES.INTERNAL_ERROR, { error, connectInfo }));
+            config.onError?.(new types_1.Web3ProviderError('Error handling connect event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, connectInfo }));
         }
     };
     // Set up event listeners with error handling
@@ -166,7 +173,7 @@ export const setupProviderEventListeners = (provider, config) => {
     }
     catch (error) {
         console.error('❌ Failed to attach event listeners:', error);
-        config.onError?.(new Web3ProviderError('Failed to attach event listeners', ERROR_CODES.INTERNAL_ERROR, { error }));
+        config.onError?.(new types_1.Web3ProviderError('Failed to attach event listeners', constants_1.ERROR_CODES.INTERNAL_ERROR, { error }));
     }
     // Return enhanced cleanup function
     return () => {
@@ -192,47 +199,50 @@ export const setupProviderEventListeners = (provider, config) => {
         }
     };
 };
+exports.setupProviderEventListeners = setupProviderEventListeners;
 /**
  * Creates a timeout promise for provider requests
  */
-export const createTimeoutPromise = (timeoutMs) => {
+const createTimeoutPromise = (timeoutMs) => {
     return new Promise((_, reject) => {
         setTimeout(() => {
-            reject(new Web3ProviderError('Request timeout', ERROR_CODES.RESOURCE_UNAVAILABLE, { timeout: timeoutMs }));
+            reject(new types_1.Web3ProviderError('Request timeout', constants_1.ERROR_CODES.RESOURCE_UNAVAILABLE, { timeout: timeoutMs }));
         }, timeoutMs);
     });
 };
+exports.createTimeoutPromise = createTimeoutPromise;
 /**
  * Wraps a provider request with timeout and error handling
  */
-export const safeProviderRequest = async (provider, method, params = [], timeoutMs = 30000) => {
+const safeProviderRequest = async (provider, method, params = [], timeoutMs = 30000) => {
     try {
         const requestPromise = provider.request({ method, params });
-        const timeoutPromise = createTimeoutPromise(timeoutMs);
+        const timeoutPromise = (0, exports.createTimeoutPromise)(timeoutMs);
         return await Promise.race([requestPromise, timeoutPromise]);
     }
     catch (error) {
         // Handle common provider errors
         if (error.code === 4001) {
-            throw new Web3ProviderError('User rejected the request', ERROR_CODES.USER_REJECTED, { method, params });
+            throw new types_1.Web3ProviderError('User rejected the request', constants_1.ERROR_CODES.USER_REJECTED, { method, params });
         }
         else if (error.code === 4100) {
-            throw new Web3ProviderError('Unauthorized', ERROR_CODES.UNAUTHORIZED, {
+            throw new types_1.Web3ProviderError('Unauthorized', constants_1.ERROR_CODES.UNAUTHORIZED, {
                 method,
                 params,
             });
         }
         else if (error.code === 4200) {
-            throw new Web3ProviderError('Unsupported method', ERROR_CODES.UNSUPPORTED_METHOD, { method, params });
+            throw new types_1.Web3ProviderError('Unsupported method', constants_1.ERROR_CODES.UNSUPPORTED_METHOD, { method, params });
         }
         else if (error.code === 4900) {
-            throw new Web3ProviderError('Disconnected from chain', ERROR_CODES.NETWORK_ERROR, { method, params });
+            throw new types_1.Web3ProviderError('Disconnected from chain', constants_1.ERROR_CODES.NETWORK_ERROR, { method, params });
         }
         else if (error.code === 4901) {
-            throw new Web3ProviderError('Chain disconnected', ERROR_CODES.NETWORK_ERROR, { method, params });
+            throw new types_1.Web3ProviderError('Chain disconnected', constants_1.ERROR_CODES.NETWORK_ERROR, { method, params });
         }
         else {
-            throw new Web3ProviderError(error.message || 'Provider request failed', ERROR_CODES.JSON_RPC_ERROR, { method, params, originalError: error });
+            throw new types_1.Web3ProviderError(error.message || 'Provider request failed', constants_1.ERROR_CODES.JSON_RPC_ERROR, { method, params, originalError: error });
         }
     }
 };
+exports.safeProviderRequest = safeProviderRequest;

@@ -1,7 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ERROR_CODES = exports.DEFAULT_CONFIG = exports.PROVIDER_PATTERNS = exports.DEFAULT_NETWORK = void 0;
 /**
  * Default network configuration - can be customized
  */
-export const DEFAULT_NETWORK = {
+exports.DEFAULT_NETWORK = {
     chainId: '0x1a1', // 417 in decimal - can be changed
     chainName: 'Custom Chain',
     nativeCurrency: {
@@ -15,7 +18,7 @@ export const DEFAULT_NETWORK = {
 /**
  * Provider detection patterns
  */
-export const PROVIDER_PATTERNS = {
+exports.PROVIDER_PATTERNS = {
     customwallet: {
         windowProperty: 'customWallet',
         isProperty: 'isCustomWallet',
@@ -44,7 +47,7 @@ export const PROVIDER_PATTERNS = {
 /**
  * The default configuration for the provider.
  */
-export const DEFAULT_CONFIG = {
+exports.DEFAULT_CONFIG = {
     preferred: ['customwallet'], // Can be changed to any supported provider
     fallbackToAny: true,
     checkInterval: 1000,
@@ -56,7 +59,7 @@ export const DEFAULT_CONFIG = {
 /**
  * Error codes for better error handling
  */
-export const ERROR_CODES = {
+exports.ERROR_CODES = {
     PROVIDER_NOT_FOUND: 'PROVIDER_NOT_FOUND',
     PROVIDER_NOT_CONNECTED: 'PROVIDER_NOT_CONNECTED',
     INVALID_ACCOUNT: 'INVALID_ACCOUNT',

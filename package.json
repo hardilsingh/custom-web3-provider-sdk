@@ -1,6 +1,6 @@
 {
   "name": "custom-web3-provider-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Universal Web3 Provider SDK. A robust, production-ready JavaScript/TypeScript SDK that provides comprehensive wallet connection utilities for blockchain applications with enhanced error handling, retry mechanisms, and comprehensive wallet functionality.",
   "main": "dist/index.js",
@@ -58,12 +58,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/antier-git/custom-web3-provider-sdk.git"
+    "url": "https://github.com/hardilsingh/custom-web3-provider-sdk"
   },
   "bugs": {
-    "url": "https://github.com/antier-git/custom-web3-provider-sdk/issues"
+    "url": "https://github.com/hardilsingh/custom-web3-provider-sdk/issues"
   },
-  "homepage": "https://github.com/antier-git/custom-web3-provider-sdk#readme",
+  "homepage": "https://github.com/hardilsingh/custom-web3-provider-sdk#readme",
   "engines": {
     "node": ">=18",
     "npm": ">=7"
