@@ -9,12 +9,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "install:sdk": "npm unlink custom-web3-provider-sdk 2>/dev/null || true && npm install ../custom-web3-provider-sdk-1.0.0.tgz",
-    "refresh:sdk": "npm install ../custom-web3-provider-sdk-1.0.0.tgz",
-    "update:sdk": "rm -rf node_modules/custom-web3-provider-sdk && npm install ../custom-web3-provider-sdk-1.0.0.tgz"
+    "install:sdk": "npm install custom-web3-provider-sdk",
+    "update:sdk": "npm update custom-web3-provider-sdk",
+    "fresh:install": "rm -rf node_modules package-lock.json && npm install"
   },
   "dependencies": {
-    "custom-web3-provider-sdk": "file:../custom-web3-provider-sdk-1.0.0.tgz",
+    "custom-web3-provider-sdk": "^1.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

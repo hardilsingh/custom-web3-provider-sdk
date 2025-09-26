@@ -25,6 +25,21 @@ A **robust, production-ready JavaScript/TypeScript SDK** that provides comprehen
 npm install custom-web3-provider-sdk
 ```
 
+## 🎮 Live Demo
+
+**Experience the SDK in action with our interactive demo:**
+
+**[🚀 View Live Demo → https://custom-sdk-demo.netlify.app](https://custom-sdk-demo.netlify.app)**
+
+The live demo showcases:
+- ✅ Multi-wallet connection (MetaMask, Coinbase, etc.)
+- ✅ Real-time account and chain updates  
+- ✅ Secure transaction signing
+- ✅ Message signing with validation
+- ✅ Custom Web3 requests
+- ✅ Error handling and recovery
+- ✅ Professional UI with all features
+
 ## 🚀 Quick Start
 
 ### Basic React Hook Usage
