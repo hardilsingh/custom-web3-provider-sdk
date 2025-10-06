@@ -4,7 +4,7 @@ A **robust, production-ready JavaScript/TypeScript SDK** that provides comprehen
 
 ## ✨ Features
 
-- 🔗 **Multi-Wallet Support**: MetaMask, Coinbase, Trust Wallet, Rabby, Brave and more
+- 🔗 **Multi-Wallet Support**: MetaMask, Coinbase, Trust Wallet, Rabby, Brave, LXX Wallet and more
 - 🛡️ **Robust Error Handling**: Comprehensive error types and retry mechanisms with enhanced security
 - 🔄 **Auto-Recovery**: Automatic reconnection and provider detection with memory leak prevention
 - 📱 **React Integration**: Optimized React hooks with proper cleanup and state management
@@ -15,7 +15,7 @@ A **robust, production-ready JavaScript/TypeScript SDK** that provides comprehen
 - 📊 **Comprehensive Wallet Actions**: Balance checking, transaction signing, gas estimation
 - 🎛️ **Configurable**: Extensive configuration options for different use cases
 - 🚀 **Custom Requests**: Flexible provider request methods for any type of data
-- 🔐 **Enhanced Event Handling**: Robust account/chain change detection with validation
+- 🔐 **Enhanced Event Handling**: Robust account/chain change detection with validation and real-time testing
 - 🧹 **Memory Management**: Proper cleanup prevents memory leaks
 - 🔍 **Debug Logging**: Comprehensive logging for troubleshooting
 
@@ -32,12 +32,13 @@ npm install custom-web3-provider-sdk
 **[🚀 View Live Demo → https://custom-sdk-demo.netlify.app](https://custom-sdk-demo.netlify.app)**
 
 The live demo showcases:
-- ✅ Multi-wallet connection (MetaMask, Coinbase, etc.)
-- ✅ Real-time account and chain updates  
+- ✅ Multi-wallet connection (MetaMask, Coinbase, Trust Wallet, LXX Wallet, etc.)
+- ✅ Real-time account and chain updates with event testing
 - ✅ Secure transaction signing
 - ✅ Message signing with validation
 - ✅ Custom Web3 requests
 - ✅ Error handling and recovery
+- ✅ Account change event testing and validation
 - ✅ Professional UI with all features
 
 ## 🚀 Quick Start
@@ -67,7 +68,7 @@ function Web3App() {
     // Utilities
     utils
   } = useWeb3Provider({
-    preferred: ['metamask', 'coinbase', 'trustwallet'],
+    preferred: ['metamask', 'coinbase', 'trustwallet', 'lxxwallet'],
     autoConnect: false,
     debug: true,
     onAccountsChanged: (accounts) => {
@@ -408,7 +409,7 @@ function CompleteDApp() {
     customRequest,
     utils
   } = useWeb3Provider({
-    preferred: ['metamask', 'coinbase', 'trustwallet'],
+    preferred: ['metamask', 'coinbase', 'trustwallet', 'lxxwallet'],
     autoConnect: true,
     debug: true,
     onAccountsChanged: (accounts) => {
@@ -694,6 +695,112 @@ function CustomRequestDemo() {
 export default CustomRequestDemo;
 ```
 
+## 🔄 Account Events Testing
+
+The SDK now includes comprehensive account change event testing functionality to ensure reliable wallet integration:
+
+### Real-time Event Monitoring
+
+```typescript
+import { useWeb3Provider } from 'custom-web3-provider-sdk';
+
+function AccountEventsDemo() {
+  const {
+    accounts,
+    chainId,
+    status,
+    currentProvider,
+    connect,
+    disconnect
+  } = useWeb3Provider({
+    preferred: ['metamask', 'coinbase', 'trustwallet', 'lxxwallet'],
+    debug: true,
+    
+    // Enhanced event handlers with validation
+    onAccountsChanged: (newAccounts) => {
+      console.log('🔑 Accounts changed:', newAccounts);
+      if (newAccounts.length === 0) {
+        console.log('⚠️ Wallet disconnected');
+      } else {
+        console.log(`📋 Current accounts: ${newAccounts.join(', ')}`);
+      }
+    },
+    
+    onChainChanged: (newChainId) => {
+      console.log('🔗 Chain changed to:', newChainId);
+    },
+    
+    onDisconnect: (error) => {
+      console.error('💔 Provider disconnected:', error);
+    },
+    
+    onError: (error) => {
+      console.error('❌ Provider error:', error);
+    }
+  });
+
+  return (
+    <div>
+      <h2>Account Events Testing</h2>
+      <div>
+        <h3>Current State</h3>
+        <p>Status: {status}</p>
+        <p>Provider: {currentProvider?.name || 'None'}</p>
+        <p>Chain ID: {chainId || 'None'}</p>
+        <p>Accounts: {accounts.length > 0 ? `${accounts.length} account(s)` : 'None'}</p>
+        {accounts.length > 0 && (
+          <div>
+            <h4>Account Addresses:</h4>
+            {accounts.map((account, index) => (
+              <div key={index} style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                {account}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      <div style={{ marginTop: '20px' }}>
+        <h3>How to Test</h3>
+        <ol>
+          <li>Connect to a wallet (MetaMask, Coinbase, Trust Wallet, LXX Wallet, etc.)</li>
+          <li>In your wallet extension, switch to a different account</li>
+          <li>Try switching to a different network (Ethereum, Polygon, etc.)</li>
+          <li>Disconnect and reconnect your wallet</li>
+          <li>Watch the console for real-time event logs</li>
+        </ol>
+        
+        <div style={{ padding: '15px', backgroundColor: '#e8f5e8', borderRadius: '4px', marginTop: '10px' }}>
+          <strong>Expected behavior:</strong> When you change accounts or networks in your wallet, 
+          you should see events logged in the console and the UI should update automatically.
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Event Testing Features
+
+- ✅ **Real-time Account Changes**: Detects when users switch accounts in their wallet
+- ✅ **Network Switching**: Monitors chain changes across different networks
+- ✅ **Connection State**: Tracks wallet connection and disconnection events
+- ✅ **Error Handling**: Comprehensive error logging and recovery
+- ✅ **Validation**: Input validation for all event data
+- ✅ **Debug Logging**: Detailed console output for troubleshooting
+
+### Supported Wallet Providers
+
+The SDK now supports the following wallet providers:
+
+- **MetaMask** (`window.ethereum`)
+- **Coinbase Wallet** (`window.coinbaseWalletExtension`)
+- **Trust Wallet** (`window.trustwallet`)
+- **Rabby Wallet** (`window.rabby`)
+- **Brave Wallet** (`window.brave`)
+- **LXX Wallet** (`window.lxxwallet`) - *New!*
+- **Custom Wallet** (`window.customWallet`)
+
 ## 🛡️ Enhanced Security Features
 
 ### Input Validation & Sanitization
@@ -893,6 +1000,29 @@ The project includes multiple TypeScript configurations:
 - 80 character line width
 - Trailing commas
 
+## 🆕 Recent Updates & Fixes
+
+### v1.0.4 - Account Events & LXX Wallet Support
+
+**🔧 Fixed Account Change Events**
+- ✅ **Fixed MetaMask account change events**: Account changes now fire properly across all wallet providers
+- ✅ **Enhanced global event handling**: Improved event listener setup for better reliability
+- ✅ **Real-time event testing**: Added comprehensive testing functionality in the demo
+- ✅ **Robust event validation**: Enhanced input validation for all wallet events
+
+**🆕 New Wallet Provider Support**
+- ✅ **LXX Wallet integration**: Added support for `window.lxxwallet` provider
+- ✅ **Enhanced provider detection**: Improved detection patterns for all supported wallets
+- ✅ **Better error handling**: More robust error handling for provider-specific issues
+
+**🔍 Enhanced Debugging**
+- ✅ **Comprehensive logging**: Added detailed debug logging for event handling
+- ✅ **Event testing UI**: Interactive testing interface in the demo application
+- ✅ **Real-time monitoring**: Live event log with color-coded messages
+
+### Breaking Changes
+- None in this version - fully backward compatible
+
 ## 🎯 Migration Guide
 
 For anyone migrating from earlier versions:
@@ -928,10 +1058,12 @@ MIT License - see LICENSE file for details.
 **Built with 💜 for the complete Web3 ecosystem**
 
 Perfect for any blockchain project requiring:
-- ✅ Multi-wallet connection
+- ✅ Multi-wallet connection (including LXX Wallet)
 - ✅ Transaction handling  
 - ✅ Secure message signing
 - ✅ Network switching
+- ✅ Real-time account change detection
 - ✅ Cross-platform compatibility
 - ✅ Production-ready error handling
 - ✅ Comprehensive TypeScript support
+- ✅ Event testing and validation
