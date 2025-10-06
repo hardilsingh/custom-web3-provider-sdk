@@ -46,19 +46,26 @@ function Web3DemoApp() {
       console.log('🔑 Accounts changed:', accounts);
       if (accounts.length === 0) {
         console.log('⚠️ Wallet disconnected');
+        addEventLog('⚠️ Wallet disconnected - no accounts available', 'error');
+      } else {
+        addEventLog(`🔑 Accounts changed: ${accounts.length} account(s) - ${accounts.join(', ')}`, 'success');
       }
     },
     onChainChanged: (chainId) => {
       console.log('🔗 Chain changed to:', chainId);
+      addEventLog(`🔗 Chain changed to: ${chainId}`, 'success');
     },
     onDisconnect: (error) => {
       console.error('💔 Provider disconnected:', error);
+      addEventLog(`💔 Provider disconnected: ${error.message || error}`, 'error');
     },
     onError: (error) => {
       console.error('❌ Provider error:', error);
+      addEventLog(`❌ Provider error: ${error.message || error}`, 'error');
     },
     onProvidersChanged: (providers) => {
       console.log('📱 Available providers:', providers);
+      addEventLog(`📱 Available providers: ${providers.map(p => p.name).join(', ')}`, 'info');
     },
   });
 
@@ -94,6 +101,29 @@ function Web3DemoApp() {
       transactions: [] as any[]
     }
   });
+
+  // Event log state for testing account changes
+  const [eventLog, setEventLog] = useState<Array<{
+    timestamp: string;
+    message: string;
+    type: 'info' | 'success' | 'error';
+  }>>([]);
+
+  // Function to add events to the log
+  const addEventLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    setEventLog(prev => [...prev, { timestamp, message, type }]);
+  };
+
+  // Function to clear the event log
+  const clearEventLog = () => {
+    setEventLog([]);
+  };
+
+  // Add initial log entry when component mounts
+  useEffect(() => {
+    addEventLog('🚀 Account Events Testing Ready - Connect a wallet to begin testing', 'info');
+  }, []);
 
   // Loading states for specific tests
   const [loading, setLoading] = useState({
@@ -901,6 +931,108 @@ function Web3DemoApp() {
                         }
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Events Testing */}
+              <div className="card">
+                <h2 className="text-2xl font-bold text-white mb-6">🔄 Account Events Testing</h2>
+                <p className="text-gray-300 mb-6">
+                  Test account change events by switching accounts or networks in your wallet. 
+                  Events should fire automatically and update the UI below.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Event Log */}
+                  <div className="bg-gray-800 p-6 rounded-xl border-gray-700">
+                    <h3 className="text-lg font-semibold text-white mb-4">📝 Event Log</h3>
+                    <div className="bg-black p-4 rounded-lg h-64 overflow-y-auto font-mono text-sm">
+                      {eventLog.length === 0 ? (
+                        <div className="text-gray-500">No events yet. Try changing accounts or networks in your wallet.</div>
+                      ) : (
+                        eventLog.map((event, index) => (
+                          <div key={index} className={`mb-2 ${
+                            event.type === 'error' ? 'text-red-400' : 
+                            event.type === 'success' ? 'text-green-400' : 
+                            'text-blue-400'
+                          }`}>
+                            <span className="text-gray-500">[{event.timestamp}]</span> {event.message}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      onClick={clearEventLog}
+                      className="mt-3 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                      Clear Log
+                    </button>
+                  </div>
+
+                  {/* Current State */}
+                  <div className="bg-gray-800 p-6 rounded-xl border-gray-700">
+                    <h3 className="text-lg font-semibold text-white mb-4">📊 Current State</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Status:</span>
+                        <span className={`font-semibold ${
+                          status === 'connected' ? 'text-green-400' : 
+                          status === 'connecting' ? 'text-yellow-400' : 
+                          'text-red-400'
+                        }`}>
+                          {status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Provider:</span>
+                        <span className="text-white font-mono">
+                          {currentProvider?.name || 'None'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Chain ID:</span>
+                        <span className="text-white font-mono">
+                          {chainId || 'None'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Accounts:</span>
+                        <span className="text-white font-mono text-right">
+                          {accounts.length > 0 ? `${accounts.length} account(s)` : 'None'}
+                        </span>
+                      </div>
+                      {accounts.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-gray-300 mb-2">Account Addresses:</div>
+                          <div className="space-y-1">
+                            {accounts.map((account, index) => (
+                              <div key={index} className="text-xs font-mono text-blue-400 break-all">
+                                {account}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Test Instructions */}
+                <div className="mt-6 bg-blue-900/20 p-6 rounded-xl border border-blue-800">
+                  <h3 className="text-lg font-semibold text-blue-400 mb-3">🧪 How to Test</h3>
+                  <ol className="text-blue-300 space-y-2 list-decimal list-inside">
+                    <li>Make sure you're connected to a wallet (MetaMask, Coinbase, etc.)</li>
+                    <li>In your wallet extension, try switching to a different account</li>
+                    <li>Try switching to a different network (Ethereum, Polygon, etc.)</li>
+                    <li>Disconnect and reconnect your wallet</li>
+                    <li>Watch the Event Log above to see if events are firing properly</li>
+                  </ol>
+                  <div className="mt-4 p-3 bg-yellow-900/20 rounded-lg border border-yellow-800">
+                    <p className="text-yellow-300 text-sm">
+                      <strong>Expected behavior:</strong> When you change accounts or networks in your wallet, 
+                      you should see events logged above and the Current State should update automatically.
+                    </p>
                   </div>
                 </div>
               </div>

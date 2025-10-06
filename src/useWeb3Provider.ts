@@ -261,12 +261,79 @@ export function useWeb3Provider(
     const handleEthereumEvent = () => {
       debugLog('Provider injection event detected, refreshing providers');
       detectProvidersCallback();
+      
+      // Re-setup event listeners if window.ethereum becomes available
+      if (window.ethereum?.on && !globalEventCleanup.some(cleanup => 
+        cleanup.toString().includes('handleGlobalAccountsChanged')
+      )) {
+        debugLog('Re-setting up global event listeners after provider injection');
+        setupEventListeners();
+      }
+    };
+
+    // Handle global account changes from window.ethereum
+    const handleGlobalAccountsChanged = (newAccounts: string[]) => {
+      debugLog('Global accounts changed event fired', {
+        accounts: newAccounts,
+        currentProvider: currentProvider?.name,
+      });
+
+      // SECURITY: Validate accounts before updating state
+      const validAccounts = Array.isArray(newAccounts)
+        ? newAccounts.filter(
+            account => account && typeof account === 'string'
+          )
+        : [];
+
+      setAccounts(validAccounts);
+      mergedConfig.onAccountsChanged?.(validAccounts);
+
+      // Reset provider state if no valid accounts
+      if (validAccounts.length === 0) {
+        debugLog('No accounts available, resetting provider state');
+        setCurrentProvider(null);
+        setChainId(null);
+        setStatus('disconnected');
+      } else {
+        // If we have accounts but no current provider, try to detect and connect
+        if (!currentProvider && window.ethereum) {
+          debugLog('Accounts available but no provider connected, attempting to detect provider');
+          detectProvidersCallback();
+        }
+      }
+    };
+
+    // Handle global chain changes from window.ethereum
+    const handleGlobalChainChanged = (newChainId: string) => {
+      debugLog('Global chain changed event fired', { 
+        chainId: newChainId,
+        currentProvider: currentProvider?.name,
+      });
+
+      // SECURITY: Validate chain ID before updating state
+      if (newChainId && typeof newChainId === 'string') {
+        setChainId(newChainId);
+        mergedConfig.onChainChanged?.(newChainId);
+        debugLog('Global chain change applied successfully');
+      } else {
+        debugLog('Invalid chain ID received, ignoring change');
+      }
     };
 
     // Set up event listeners for different providers with cleanup tracking
     let globalEventCleanup: (() => void)[] = [];
 
     const setupEventListeners = () => {
+      // Clean up existing listeners first to prevent duplicates
+      globalEventCleanup.forEach(cleanup => {
+        try {
+          cleanup();
+        } catch (error) {
+          debugLog('Error during cleanup:', error);
+        }
+      });
+      globalEventCleanup = [];
+
       // Global ethereum provider - with cleanup tracking
       if (window.ethereum?.on) {
         const removeConnect = () =>
@@ -274,19 +341,23 @@ export function useWeb3Provider(
         const removeChain = () =>
           window.ethereum?.removeListener?.(
             'chainChanged',
-            handleEthereumEvent
+            handleGlobalChainChanged
           );
         const removeAccounts = () =>
           window.ethereum?.removeListener?.(
             'accountsChanged',
-            handleEthereumEvent
+            handleGlobalAccountsChanged
           );
 
         window.ethereum.on('connect', handleEthereumEvent);
-        window.ethereum.on('chainChanged', handleEthereumEvent);
-        window.ethereum.on('accountsChanged', handleEthereumEvent);
+        window.ethereum.on('chainChanged', handleGlobalChainChanged);
+        window.ethereum.on('accountsChanged', handleGlobalAccountsChanged);
 
         globalEventCleanup.push(removeConnect, removeChain, removeAccounts);
+        
+        debugLog('Global event listeners attached to window.ethereum');
+      } else {
+        debugLog('window.ethereum not available for event listeners');
       }
 
       // Window provider listeners
@@ -295,6 +366,8 @@ export function useWeb3Provider(
       };
       window.addEventListener('ethereum#initialized', handleEthereumEvent);
       globalEventCleanup.push(removeEthereumInitialized);
+      
+      debugLog('Window event listeners attached');
     };
 
     setupEventListeners();
