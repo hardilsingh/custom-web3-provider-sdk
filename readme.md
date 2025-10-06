@@ -1002,7 +1002,7 @@ The project includes multiple TypeScript configurations:
 
 ## 🆕 Recent Updates & Fixes
 
-### v1.0.4 - Account Events & LXX Wallet Support
+### v1.0.6 - Account Events & LXX Wallet Support
 
 **🔧 Fixed Account Change Events**
 - ✅ **Fixed MetaMask account change events**: Account changes now fire properly across all wallet providers
