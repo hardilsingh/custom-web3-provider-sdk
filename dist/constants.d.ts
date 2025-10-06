@@ -3,7 +3,7 @@ import { Web3ProviderConfig } from './types';
  * Supported wallet provider names.
  * These are the available provider types that can be detected.
  */
-export type WalletProviderName = 'customwallet' | 'metamask' | 'coinbase' | 'trustwallet' | 'rabby' | 'brave';
+export type WalletProviderName = 'customwallet' | 'metamask' | 'coinbase' | 'trustwallet' | 'rabby' | 'brave' | 'lxxwallet';
 /**
  * Default network configuration - can be customized
  */
@@ -45,6 +45,10 @@ export declare const PROVIDER_PATTERNS: {
     readonly brave: {
         readonly windowProperty: "brave";
         readonly isProperty: "isBraveWallet";
+    };
+    readonly lxxwallet: {
+        readonly windowProperty: "lxxwallet";
+        readonly isProperty: "isLxxWallet";
     };
 };
 /**

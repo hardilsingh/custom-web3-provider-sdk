@@ -10,7 +10,8 @@ export type WalletProviderName =
   | 'coinbase'
   | 'trustwallet'
   | 'rabby'
-  | 'brave';
+  | 'brave'
+  | 'lxxwallet';
 
 /**
  * Default network configuration - can be customized
@@ -54,6 +55,10 @@ export const PROVIDER_PATTERNS = {
   brave: {
     windowProperty: 'brave',
     isProperty: 'isBraveWallet',
+  },
+  lxxwallet: {
+    windowProperty: 'lxxwallet',
+    isProperty: 'isLxxWallet',
   },
 } as const;
 

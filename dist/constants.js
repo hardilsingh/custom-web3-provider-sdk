@@ -43,6 +43,10 @@ exports.PROVIDER_PATTERNS = {
         windowProperty: 'brave',
         isProperty: 'isBraveWallet',
     },
+    lxxwallet: {
+        windowProperty: 'lxxwallet',
+        isProperty: 'isLxxWallet',
+    },
 };
 /**
  * The default configuration for the provider.

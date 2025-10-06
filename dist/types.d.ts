@@ -51,6 +51,7 @@ export interface EthereumProvider {
     isCoinbaseWallet?: boolean;
     isRabby?: boolean;
     isBraveWallet?: boolean;
+    isLxxWallet?: boolean;
     request: (args: {
         method: AvailableEIP1193Methods;
         params?: any[];
@@ -353,5 +354,6 @@ declare global {
         rabby?: EthereumProvider;
         brave?: EthereumProvider;
         trustwallet?: EthereumProvider;
+        lxxwallet?: EthereumProvider;
     }
 }
