@@ -14,7 +14,9 @@
     "fresh:install": "rm -rf node_modules package-lock.json && npm install"
   },
   "dependencies": {
-    "custom-web3-provider-sdk": "^1.0.4",
+    "custom-web3-provider-sdk": "^1.0.24",
+    "install": "^0.13.0",
+    "npm": "^11.6.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

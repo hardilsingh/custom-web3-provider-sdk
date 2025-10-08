@@ -63,6 +63,7 @@ export interface EthereumProvider {
     selectedAddress?: string;
     chainId?: string;
     networkVersion?: string;
+    setAddress?: (address: string) => Promise<void> | void;
     [key: string]: any;
 }
 /**
@@ -354,6 +355,10 @@ declare global {
         rabby?: EthereumProvider;
         brave?: EthereumProvider;
         trustwallet?: EthereumProvider;
-        lxxwallet?: EthereumProvider;
+        lxx?: EthereumProvider;
+        lxxwallet?: {
+            Provider?: EthereumProvider;
+            [key: string]: any;
+        };
     }
 }

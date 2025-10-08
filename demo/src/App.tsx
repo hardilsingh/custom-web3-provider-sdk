@@ -34,7 +34,7 @@ function Web3DemoApp() {
     // Utilities
     utils,
   } = useWeb3Provider({
-    preferred: ['metamask', 'coinbase', 'trustwallet', 'customwallet', 'lxxwallet'],
+    preferred: ['metamask', 'coinbase', 'trustwallet', 'customwallet', 'lxx'],
     fallbackToAny: true,
     autoConnect: false,
     checkInterval: 2000,

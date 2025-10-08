@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ERROR_CODES = exports.DEFAULT_CONFIG = exports.PROVIDER_PATTERNS = exports.DEFAULT_NETWORK = void 0;
 /**
  * Default network configuration - can be customized
+ * Note: RPC URLs are not used by the SDK - the wallet provider handles all RPC connections
  */
 exports.DEFAULT_NETWORK = {
     chainId: '0x1a1', // 417 in decimal - can be changed
@@ -12,7 +13,6 @@ exports.DEFAULT_NETWORK = {
         symbol: 'CURRENCY',
         decimals: 18,
     },
-    rpcUrls: ['https://rpc.custom.chain'],
     blockExplorerUrls: ['https://explorer.custom.chain'],
 };
 /**
@@ -44,7 +44,7 @@ exports.PROVIDER_PATTERNS = {
         isProperty: 'isBraveWallet',
     },
     lxxwallet: {
-        windowProperty: 'lxxwallet',
+        windowProperty: 'lxx',
         isProperty: 'isLxxWallet',
     },
 };

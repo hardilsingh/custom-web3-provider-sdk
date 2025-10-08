@@ -77,17 +77,15 @@ export const detectProviders = (): DetectedWalletProvider[] => {
     const provider = (window as any)[pattern.windowProperty];
 
     if (provider && typeof provider.request === 'function') {
-      // Additional validation for specific providers
-      if (pattern.isProperty && provider[pattern.isProperty]) {
-        detected.push({
-          name: name as WalletProviderName,
-          provider,
-          capabilities: detectProviderCapabilities(provider),
-          isConnected: provider.isConnected?.() || false,
-          version: provider.networkVersion || 'unknown',
-        });
-      } else if (name === 'customwallet' && provider) {
-        // Custom wallet provider might not have isCustomWallet property
+      // Dynamic validation: check if provider has the isProperty (even if false) or if it's a known provider
+      const hasIsProperty = pattern.isProperty && (pattern.isProperty in provider);
+      
+      // Accept provider if:
+      // 1. It has the isProperty set to true, OR
+      // 2. It has the isProperty (even if false) and it's a known provider pattern, OR
+      // 3. It's a custom wallet (no isProperty required), OR
+      // 4. It has the isProperty but it's false (handles cases like LXX wallet)
+      if ((hasIsProperty && pattern.isProperty) || name === 'customwallet' || provider[pattern.isProperty] === false) {
         detected.push({
           name: name as WalletProviderName,
           provider,
@@ -96,6 +94,12 @@ export const detectProviders = (): DetectedWalletProvider[] => {
           version: provider.networkVersion || 'unknown',
         });
       }
+
+      console.log('🔍 Detected provider:', {
+        name,
+        provider,
+        hasIsProperty,
+      });
     }
   });
 
@@ -305,7 +309,23 @@ export const safeProviderRequest = async <T = any>(
     const requestPromise = provider.request({ method, params });
     const timeoutPromise = createTimeoutPromise(timeoutMs);
 
-    return await Promise.race([requestPromise, timeoutPromise]);
+    const result = await Promise.race([requestPromise, timeoutPromise]);
+    console.log("🚀 ~ safeProviderRequest ~ result:", result)
+    
+    // Handle non-standard response formats (e.g., LXX wallet)
+    // Format 1: { result: [...], method: "...", ... }
+    if (result && typeof result === 'object' && 'result' in result && result.result !== undefined) {
+      console.log('🔍 Non-standard provider response (result) detected, extracting result:', result);
+      return result.result as T;
+    }
+    
+    // Format 2: { type: "success", data: [...] }
+    if (result && typeof result === 'object' && 'data' in result && result.data !== undefined) {
+      console.log('🔍 Non-standard provider response (data) detected, extracting data:', result);
+      return result.data as T;
+    }
+    
+    return result;
   } catch (error: any) {
     // Handle common provider errors
     if (error.code === 4001) {

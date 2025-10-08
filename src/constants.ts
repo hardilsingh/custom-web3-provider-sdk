@@ -11,10 +11,11 @@ export type WalletProviderName =
   | 'trustwallet'
   | 'rabby'
   | 'brave'
-  | 'lxxwallet';
+  | 'lxx';
 
 /**
  * Default network configuration - can be customized
+ * Note: RPC URLs are not used by the SDK - the wallet provider handles all RPC connections
  */
 export const DEFAULT_NETWORK = {
   chainId: '0x1a1', // 417 in decimal - can be changed
@@ -24,7 +25,6 @@ export const DEFAULT_NETWORK = {
     symbol: 'CURRENCY',
     decimals: 18,
   },
-  rpcUrls: ['https://rpc.custom.chain'],
   blockExplorerUrls: ['https://explorer.custom.chain'],
 };
 
@@ -57,7 +57,7 @@ export const PROVIDER_PATTERNS = {
     isProperty: 'isBraveWallet',
   },
   lxxwallet: {
-    windowProperty: 'lxxwallet',
+    windowProperty: 'lxx',
     isProperty: 'isLxxWallet',
   },
 } as const;

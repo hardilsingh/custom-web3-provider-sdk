@@ -330,6 +330,51 @@ export const createWalletActions = (
           ),
         });
 
+        // Call setAddress if the method is available on the provider
+        // This is required for custom wallet providers that need explicit address setting
+        const firstAccount = accounts[0];
+        if (firstAccount && typeof provider.setAddress === 'function') {
+          // Validate address before calling setAddress for security
+          if (!isValidAddress(firstAccount)) {
+            debugWalletAction('Invalid address format, skipping setAddress', {
+              address: firstAccount,
+            });
+            console.warn('⚠️ Invalid address format, skipping setAddress call');
+          } else {
+            try {
+              debugWalletAction('Calling setAddress method', {
+                address: firstAccount,
+                hasSetAddress: true,
+              });
+              
+              // Add timeout protection for setAddress (5 seconds)
+              const setAddressPromise = provider.setAddress(firstAccount);
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('setAddress timeout')), 5000);
+              });
+              
+              await Promise.race([setAddressPromise, timeoutPromise]);
+              
+              debugWalletAction('setAddress called successfully', {
+                address: `${firstAccount.slice(0, 6)}...${firstAccount.slice(-4)}`,
+              });
+            } catch (setAddressError: any) {
+              debugWalletAction('setAddress call failed (non-critical)', {
+                error: setAddressError.message,
+                address: firstAccount,
+                isTimeout: setAddressError.message?.includes('timeout'),
+              });
+              // Don't throw - setAddress failure shouldn't block the connection
+              console.warn('⚠️ setAddress method failed:', setAddressError);
+            }
+          }
+        } else if (accounts.length > 0) {
+          debugWalletAction('setAddress method not available on provider', {
+            hasSetAddress: typeof provider.setAddress === 'function',
+            providerType: provider.constructor?.name || 'Unknown',
+          });
+        }
+
         return accounts;
       } catch (error: any) {
         debugWalletAction(
@@ -410,7 +455,6 @@ export const createWalletActions = (
           return {
             chainId,
             name: DEFAULT_NETWORK.chainName,
-            rpcUrl: DEFAULT_NETWORK.rpcUrls[0] || '',
             blockExplorerUrl: DEFAULT_NETWORK.blockExplorerUrls[0] || '',
             nativeCurrency: DEFAULT_NETWORK.nativeCurrency,
           };
@@ -431,12 +475,15 @@ export const createWalletActions = (
      */
     getAccount: async (): Promise<string> => {
       try {
+        console.log('🔍 getAccount: Calling eth_requestAccounts...');
         const accounts = await safeProviderRequest<string[]>(
           provider,
-          'eth_accounts'
+          'eth_requestAccounts'
         );
+        console.log('🔍 getAccount: eth_requestAccounts response:', accounts);
 
         if (!accounts || accounts.length === 0) {
+          console.error('❌ getAccount: No accounts found or empty array', { accounts });
           throw new Web3ProviderError(
             'No accounts found',
             ERROR_CODES.UNAUTHORIZED
@@ -468,7 +515,7 @@ export const createWalletActions = (
       try {
         const accounts = await safeProviderRequest<string[]>(
           provider,
-          'eth_accounts'
+          'eth_requestAccounts'
         );
 
         if (!Array.isArray(accounts)) {

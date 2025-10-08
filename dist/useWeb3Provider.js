@@ -259,20 +259,28 @@ function useWeb3Provider(config = {}) {
                 }
             });
             globalEventCleanup = [];
-            // Global ethereum provider - with cleanup tracking
-            if (window.ethereum?.on) {
-                const removeConnect = () => window.ethereum?.removeListener?.('connect', handleEthereumEvent);
-                const removeChain = () => window.ethereum?.removeListener?.('chainChanged', handleGlobalChainChanged);
-                const removeAccounts = () => window.ethereum?.removeListener?.('accountsChanged', handleGlobalAccountsChanged);
-                window.ethereum.on('connect', handleEthereumEvent);
-                window.ethereum.on('chainChanged', handleGlobalChainChanged);
-                window.ethereum.on('accountsChanged', handleGlobalAccountsChanged);
-                globalEventCleanup.push(removeConnect, removeChain, removeAccounts);
-                debugLog('Global event listeners attached to window.ethereum');
-            }
-            else {
-                debugLog('window.ethereum not available for event listeners');
-            }
+            // Set up event listeners for all provider objects on window (comprehensive approach)
+            const allProviderNames = [
+                'ethereum', 'lxx', 'customWallet', 'coinbaseWalletExtension',
+                'rabby', 'brave', 'trustwallet'
+            ];
+            allProviderNames.forEach(providerName => {
+                const provider = window[providerName];
+                if (provider?.on && typeof provider.request === 'function') {
+                    const removeChain = () => provider?.removeListener?.('chainChanged', handleGlobalChainChanged);
+                    const removeAccounts = () => provider?.removeListener?.('accountsChanged', handleGlobalAccountsChanged);
+                    provider.on('chainChanged', handleGlobalChainChanged);
+                    provider.on('accountsChanged', handleGlobalAccountsChanged);
+                    globalEventCleanup.push(removeChain, removeAccounts);
+                    // Special handling for ethereum provider - also add connect event
+                    if (providerName === 'ethereum') {
+                        const removeConnect = () => provider?.removeListener?.('connect', handleEthereumEvent);
+                        provider.on('connect', handleEthereumEvent);
+                        globalEventCleanup.push(removeConnect);
+                    }
+                    debugLog(`Event listeners attached to window.${providerName}`);
+                }
+            });
             // Window provider listeners
             const removeEthereumInitialized = () => {
                 window.removeEventListener('ethereum#initialized', handleEthereumEvent);

@@ -3,9 +3,10 @@ import { Web3ProviderConfig } from './types';
  * Supported wallet provider names.
  * These are the available provider types that can be detected.
  */
-export type WalletProviderName = 'customwallet' | 'metamask' | 'coinbase' | 'trustwallet' | 'rabby' | 'brave' | 'lxxwallet';
+export type WalletProviderName = 'customwallet' | 'metamask' | 'coinbase' | 'trustwallet' | 'rabby' | 'brave' | 'lxx';
 /**
  * Default network configuration - can be customized
+ * Note: RPC URLs are not used by the SDK - the wallet provider handles all RPC connections
  */
 export declare const DEFAULT_NETWORK: {
     chainId: string;
@@ -15,7 +16,6 @@ export declare const DEFAULT_NETWORK: {
         symbol: string;
         decimals: number;
     };
-    rpcUrls: string[];
     blockExplorerUrls: string[];
 };
 /**
@@ -47,7 +47,7 @@ export declare const PROVIDER_PATTERNS: {
         readonly isProperty: "isBraveWallet";
     };
     readonly lxxwallet: {
-        readonly windowProperty: "lxxwallet";
+        readonly windowProperty: "lxx";
         readonly isProperty: "isLxxWallet";
     };
 };
