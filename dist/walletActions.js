@@ -4,6 +4,8 @@ exports.createWalletActions = void 0;
 const types_1 = require("./types");
 const providerUtils_1 = require("./providerUtils");
 const constants_1 = require("./constants");
+const logger_1 = require("./utils/logger");
+const performance_1 = require("./utils/performance");
 /**
  * Utility to convert wei to ether
  */
@@ -36,37 +38,19 @@ const createWalletActions = (provider, config) => {
     if (!provider || typeof provider.request !== 'function') {
         throw new types_1.ProviderNotConnectedError();
     }
+    // Get logger instance
+    const logger = (0, logger_1.getLogger)(typeof window !== 'undefined' && window.web3DebugEnabled === true);
     // Debug logging helper for wallet actions
     const debugWalletAction = (action, details = {}) => {
-        // Debug if window debug is enabled OR if we're in a debug context
-        const isDebugEnabled = typeof window !== 'undefined' &&
-            window.web3DebugEnabled === true;
-        if (isDebugEnabled) {
-            console.log(`💼 Wallet Action: ${action}`, details);
-            // Better serialization for complex objects
-            try {
-                const serializedDetails = JSON.stringify(details, (key, value) => {
-                    if (key === 'provider' || key === 'providerMethod') {
-                        return '[Provider Object - ' + typeof value + ']';
-                    }
-                    return value;
-                }, 2);
-                console.log(`💼 Details JSON:`, JSON.parse(serializedDetails));
-            }
-            catch (parseError) {
-                console.log(`💼 Details (fallback):`, details);
-            }
-        }
+        logger.debug(`Wallet Action: ${action}`, details);
     };
     const actions = {
         /**
          * Request accounts from the provider - should be the primary method
          */
         requestAccounts: async () => {
-            // Immediate debug test
-            const isDebugEnabled = typeof window !== 'undefined' &&
-                window.web3DebugEnabled === true;
-            console.log('🧪 WALLET ACTION DEBUG - requestAccounts starting', 'Debug enabled:', isDebugEnabled);
+            // Start performance timer
+            performance_1.performanceMonitor.startTimer('requestAccounts');
             debugWalletAction('requestAccounts started', {
                 providerMethod: typeof provider.request,
                 timestamp: new Date().toISOString(),
@@ -235,7 +219,9 @@ const createWalletActions = (provider, config) => {
                         debugWalletAction('Invalid address format, skipping setAddress', {
                             address: firstAccount,
                         });
-                        console.warn('⚠️ Invalid address format, skipping setAddress call');
+                        logger.warn('Invalid address format, skipping setAddress call', {
+                            address: firstAccount,
+                        });
                     }
                     else {
                         try {
@@ -260,7 +246,7 @@ const createWalletActions = (provider, config) => {
                                 isTimeout: setAddressError.message?.includes('timeout'),
                             });
                             // Don't throw - setAddress failure shouldn't block the connection
-                            console.warn('⚠️ setAddress method failed:', setAddressError);
+                            logger.warn('setAddress method failed', setAddressError);
                         }
                     }
                 }
@@ -347,11 +333,15 @@ const createWalletActions = (provider, config) => {
          */
         getAccount: async () => {
             try {
-                console.log('🔍 getAccount: Calling eth_requestAccounts...');
+                debugWalletAction('getAccount: Calling eth_requestAccounts');
                 const accounts = await (0, providerUtils_1.safeProviderRequest)(provider, 'eth_requestAccounts');
-                console.log('🔍 getAccount: eth_requestAccounts response:', accounts);
+                debugWalletAction('getAccount: eth_requestAccounts response', {
+                    count: accounts?.length,
+                });
                 if (!accounts || accounts.length === 0) {
-                    console.error('❌ getAccount: No accounts found or empty array', { accounts });
+                    logger.error('getAccount: No accounts found or empty array', {
+                        accounts,
+                    });
                     throw new types_1.Web3ProviderError('No accounts found', constants_1.ERROR_CODES.UNAUTHORIZED);
                 }
                 const account = accounts[0];

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.safeProviderRequest = exports.createTimeoutPromise = exports.setupProviderEventListeners = exports.detectProviders = exports.detectProviderCapabilities = exports.isValidChainId = exports.isValidAddress = void 0;
 const types_1 = require("./types");
 const constants_1 = require("./constants");
+const logger_1 = require("./utils/logger");
 /**
  * Validates if an address is a valid Ethereum address
  */
@@ -61,13 +62,15 @@ const detectProviders = () => {
         const provider = window[pattern.windowProperty];
         if (provider && typeof provider.request === 'function') {
             // Dynamic validation: check if provider has the isProperty (even if false) or if it's a known provider
-            const hasIsProperty = pattern.isProperty && (pattern.isProperty in provider);
+            const hasIsProperty = pattern.isProperty && pattern.isProperty in provider;
             // Accept provider if:
             // 1. It has the isProperty set to true, OR
             // 2. It has the isProperty (even if false) and it's a known provider pattern, OR
             // 3. It's a custom wallet (no isProperty required), OR
             // 4. It has the isProperty but it's false (handles cases like LXX wallet)
-            if ((hasIsProperty && pattern.isProperty) || name === 'customwallet' || provider[pattern.isProperty] === false) {
+            if ((hasIsProperty && pattern.isProperty) ||
+                name === 'customwallet' ||
+                provider[pattern.isProperty] === false) {
                 detected.push({
                     name: name,
                     provider,
@@ -76,9 +79,9 @@ const detectProviders = () => {
                     version: provider.networkVersion || 'unknown',
                 });
             }
-            console.log('🔍 Detected provider:', {
+            logger_1.logger.debug('Detected provider', {
                 name,
-                provider,
+                provider: provider.constructor?.name || 'Provider',
                 hasIsProperty,
             });
         }
@@ -106,43 +109,46 @@ const setupProviderEventListeners = (provider, config) => {
             if (accountsArray.length >= 0) {
                 // Valid even if empty array
                 const validAccounts = accountsArray.filter(account => account && typeof account === 'string' && (0, exports.isValidAddress)(account));
-                console.log('✅ Accounts changed event:', {
+                logger_1.logger.debug('Accounts changed event', {
                     original: newAccounts,
                     valid: validAccounts,
                 });
                 config.onAccountsChanged?.(validAccounts);
             }
             else {
-                console.warn('⚠️ Invalid accounts changed event:', newAccounts);
+                logger_1.logger.warn('Invalid accounts changed event', newAccounts);
                 config.onError?.(new types_1.Web3ProviderError('Invalid accounts format in accountsChanged event', constants_1.ERROR_CODES.INVALID_PARAMS, { accounts: newAccounts }));
             }
         }
         catch (error) {
-            console.error('❌ Error in accounts changed handler:', error);
+            logger_1.logger.error('Error in accounts changed handler', error);
             config.onError?.(new types_1.Web3ProviderError('Error handling accounts changed event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, accounts: newAccounts }));
         }
     };
     const handleChainChanged = (newChainId) => {
         try {
-            console.log('🔗 Chain changed event received:', newChainId);
+            logger_1.logger.debug('Chain changed event received', newChainId);
             // Validate chain ID with comprehensive checks
             if (newChainId && typeof newChainId === 'string') {
                 if ((0, exports.isValidChainId)(newChainId)) {
-                    console.log('✅ Chain changed event valid, calling callback');
+                    logger_1.logger.debug('Chain changed event valid, calling callback');
                     config.onChainChanged?.(newChainId);
                 }
                 else {
-                    console.warn('⚠️ Invalid chain ID format:', newChainId);
+                    logger_1.logger.warn('Invalid chain ID format', newChainId);
                     config.onError?.(new types_1.Web3ProviderError('Invalid chain ID format received', constants_1.ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
                 }
             }
             else {
-                console.warn('⚠️ Invalid chain changed event format:', typeof newChainId, newChainId);
+                logger_1.logger.warn('Invalid chain changed event format', {
+                    type: typeof newChainId,
+                    value: newChainId,
+                });
                 config.onError?.(new types_1.Web3ProviderError('Invalid chain ID data type', constants_1.ERROR_CODES.NETWORK_ERROR, { chainId: newChainId }));
             }
         }
         catch (error) {
-            console.error('❌ Error in chain changed handler:', error);
+            logger_1.logger.error('Error in chain changed handler', error);
             config.onError?.(new types_1.Web3ProviderError('Error handling chain changed event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, chainId: newChainId }));
         }
     };
@@ -158,7 +164,7 @@ const setupProviderEventListeners = (provider, config) => {
     const handleConnect = (connectInfo) => {
         try {
             // Handle connection events if needed
-            console.log('Provider connected:', connectInfo);
+            logger_1.logger.debug('Provider connected', connectInfo);
         }
         catch (error) {
             config.onError?.(new types_1.Web3ProviderError('Error handling connect event', constants_1.ERROR_CODES.INTERNAL_ERROR, { error, connectInfo }));
@@ -170,33 +176,33 @@ const setupProviderEventListeners = (provider, config) => {
         provider.on('chainChanged', handleChainChanged);
         provider.on('disconnect', handleDisconnect);
         provider.on('connect', handleConnect);
-        console.log('✅ Event listeners attached successfully');
+        logger_1.logger.debug('Event listeners attached successfully');
     }
     catch (error) {
-        console.error('❌ Failed to attach event listeners:', error);
+        logger_1.logger.error('Failed to attach event listeners', error);
         config.onError?.(new types_1.Web3ProviderError('Failed to attach event listeners', constants_1.ERROR_CODES.INTERNAL_ERROR, { error }));
     }
     // Return enhanced cleanup function
     return () => {
-        console.log('🧹 Cleaning up event listeners');
+        logger_1.logger.debug('Cleaning up event listeners');
         try {
             if (provider.removeListener) {
                 provider.removeListener('accountsChanged', handleAccountsChanged);
                 provider.removeListener('chainChanged', handleChainChanged);
                 provider.removeListener('disconnect', handleDisconnect);
                 provider.removeListener('connect', handleConnect);
-                console.log('✅ Event listeners removed successfully');
+                logger_1.logger.debug('Event listeners removed successfully');
             }
             else if (provider.removeAllListeners) {
                 provider.removeAllListeners();
-                console.log('✅ All event listeners removed');
+                logger_1.logger.debug('All event listeners removed');
             }
             else {
-                console.warn('⚠️ No removeListener method available on provider');
+                logger_1.logger.warn('No removeListener method available on provider');
             }
         }
         catch (error) {
-            console.error('❌ Error during cleanup of event listeners:', error);
+            logger_1.logger.error('Error during cleanup of event listeners', error);
         }
     };
 };
@@ -220,16 +226,22 @@ const safeProviderRequest = async (provider, method, params = [], timeoutMs = 30
         const requestPromise = provider.request({ method, params });
         const timeoutPromise = (0, exports.createTimeoutPromise)(timeoutMs);
         const result = await Promise.race([requestPromise, timeoutPromise]);
-        console.log("🚀 ~ safeProviderRequest ~ result:", result);
+        logger_1.logger.debug('Provider request result', { method, result: typeof result });
         // Handle non-standard response formats (e.g., LXX wallet)
         // Format 1: { result: [...], method: "...", ... }
-        if (result && typeof result === 'object' && 'result' in result && result.result !== undefined) {
-            console.log('🔍 Non-standard provider response (result) detected, extracting result:', result);
+        if (result &&
+            typeof result === 'object' &&
+            'result' in result &&
+            result.result !== undefined) {
+            logger_1.logger.debug('Non-standard provider response (result) detected, extracting result');
             return result.result;
         }
         // Format 2: { type: "success", data: [...] }
-        if (result && typeof result === 'object' && 'data' in result && result.data !== undefined) {
-            console.log('🔍 Non-standard provider response (data) detected, extracting data:', result);
+        if (result &&
+            typeof result === 'object' &&
+            'data' in result &&
+            result.data !== undefined) {
+            logger_1.logger.debug('Non-standard provider response (data) detected, extracting data');
             return result.data;
         }
         return result;

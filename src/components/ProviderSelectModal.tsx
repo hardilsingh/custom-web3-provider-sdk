@@ -32,19 +32,52 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  // Handle escape key press
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  // Focus trap - focus on first interactive element
+  React.useEffect(() => {
+    if (isOpen) {
+      const modal = document.querySelector('[role="dialog"]');
+      const focusableElements = modal?.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements?.[0] as HTMLElement;
+      firstElement?.focus();
+    }
+  }, [isOpen]);
+
   return (
-    <div className='modal-overlay'>
+    <div className='modal-overlay' role='presentation'>
       {/* Backdrop */}
-      <div className='modal-backdrop' onClick={onClose} />
+      <div className='modal-backdrop' onClick={onClose} aria-hidden='true' />
 
       {/* Modal */}
-      <div className='modal-content'>
+      <div
+        className='modal-content'
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='modal-title'
+        aria-describedby='modal-description'
+      >
         {/* Header */}
         <div className='flex items-center justify-between p-6 border-b border-gray-200'>
-          <h2 className='text-2xl font-bold gradient-text'>Connect Wallet</h2>
+          <h2 id='modal-title' className='text-2xl font-bold gradient-text'>
+            Connect Wallet
+          </h2>
           <button
             onClick={onClose}
             className='p-2 hover:bg-gray-100 rounded-full transition-colors'
+            aria-label='Close modal'
           >
             <svg
               className='w-5 h-5'
@@ -65,9 +98,15 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
         {/* Content */}
         <div className='p-6'>
           {error && (
-            <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-lg'>
+            <div
+              className='mb-4 p-4 bg-red-50 border border-red-200 rounded-lg'
+              role='alert'
+              aria-live='assertive'
+            >
               <div className='flex items-center'>
-                <div className='text-red-600 mr-3'>⚠️</div>
+                <div className='text-red-600 mr-3' aria-hidden='true'>
+                  ⚠️
+                </div>
                 <div className='flex-1'>
                   <p className='text-red-800 text-sm font-medium'>
                     {error.message}
@@ -77,6 +116,7 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
                   <button
                     onClick={clearError}
                     className='ml-3 text-red-600 hover:text-red-800'
+                    aria-label='Clear error'
                   >
                     ✕
                   </button>
@@ -85,12 +125,16 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
             </div>
           )}
 
-          <p className='text-gray-600 mb-6'>
+          <p id='modal-description' className='text-gray-600 mb-6'>
             Choose a wallet to connect to your dApp
           </p>
 
           {/* Providers List */}
-          <div className='space-y-3'>
+          <div
+            className='space-y-3'
+            role='list'
+            aria-label='Available wallet providers'
+          >
             {providers.length > 0 ? (
               providers.map(provider => (
                 <button
@@ -98,6 +142,8 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
                   onClick={() => onSelectProvider(provider.name)}
                   disabled={isConnecting}
                   className='w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed group'
+                  role='listitem'
+                  aria-label={`Connect to ${provider.name} wallet${provider.isConnected ? ' (currently connected)' : ''}`}
                 >
                   <div className='flex items-center space-x-4'>
                     <div className='text-2xl'>
@@ -167,9 +213,17 @@ export const ProviderSelectModal: React.FC<ProviderSelectModalProps> = ({
           </div>
 
           {isConnecting && (
-            <div className='mt-6 flex items-center justify-center'>
+            <div
+              className='mt-6 flex items-center justify-center'
+              role='status'
+              aria-live='polite'
+              aria-label='Connecting to wallet'
+            >
               <div className='animate-pulse flex items-center space-x-2'>
-                <div className='w-4 h-4 bg-blue-600 rounded-full animate-bounce'></div>
+                <div
+                  className='w-4 h-4 bg-blue-600 rounded-full animate-bounce'
+                  aria-hidden='true'
+                ></div>
                 <span className='text-gray-600 dark:text-gray-300'>
                   Connecting...
                 </span>

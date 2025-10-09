@@ -17,6 +17,8 @@ import {
   isValidChainId,
 } from './providerUtils';
 import { createWalletActions } from './walletActions';
+import { getLogger } from './utils/logger';
+import { performanceMonitor } from './utils/performance';
 
 /**
  * A comprehensive hook for managing Web3 providers with enhanced error handling,
@@ -51,7 +53,7 @@ import { createWalletActions } from './walletActions';
  *   preferred: ['customwallet'],
  *   autoConnect: true,
  *   debug: true,
- *   onError: (error) => console.error('Provider error:', error)
+ *   onError: (error) => logger.error('Provider error:', error)
  * });
  * ```
  */
@@ -90,55 +92,36 @@ export function useWeb3Provider(
     // Immediately enable debug for wallet actions if requested
     if (configValues.debug) {
       (window as any).web3DebugEnabled = true;
-      console.log('🔧 DEBUG LOGGING ACTIVE - Web3 Provider SDK');
-      console.log('🔧 DEBUG =', configValues.debug);
-    } else {
-      console.log('❌ Debug logging OFF');
     }
 
     return configValues;
   }, [config]);
 
   // Enhanced debug logging utility
+  const logger = useMemo(
+    () => getLogger(mergedConfig.debug),
+    [mergedConfig.debug]
+  );
+
   const debugLog = useCallback(
     (message: string, data?: any) => {
-      if (mergedConfig.debug) {
-        // Enable debug for wallet actions
-        if (typeof window !== 'undefined') {
-          (window as any).web3DebugEnabled = true;
-        }
-        const timestamp =
-          new Date().toISOString().split('T')[1]?.split('.')[0] || '';
-        console.log(
-          `[🚀 Web3 Provider SDK - ${timestamp}] ${message}`,
-          data || ''
-        );
-      } else {
-        // Disable debug for wallet actions
-        if (typeof window !== 'undefined') {
-          (window as any).web3DebugEnabled = false;
-        }
-      }
+      logger.debug(message, data);
     },
-    [mergedConfig.debug]
+    [logger]
   );
 
   // Detailed connection logging
   const debugConnection = useCallback(
     (stage: string, details: any = {}) => {
-      if (mergedConfig.debug) {
-        console.group(`🔌 Connection: ${stage}`);
-        console.table({
-          'Current Status': status,
-          'Provider Name': details.name || 'None',
-          'Provider Type': details.providerType || 'Unknown',
-          Event: stage,
-          ...details,
-        });
-        console.groupEnd();
-      }
+      logger.group(`Connection: ${stage}`, {
+        'Current Status': status,
+        'Provider Name': details.name || 'None',
+        'Provider Type': details.providerType || 'Unknown',
+        Event: stage,
+        ...details,
+      });
     },
-    [mergedConfig.debug, status]
+    [logger, status]
   );
 
   // Error handling utility
@@ -261,12 +244,17 @@ export function useWeb3Provider(
     const handleEthereumEvent = () => {
       debugLog('Provider injection event detected, refreshing providers');
       detectProvidersCallback();
-      
+
       // Re-setup event listeners if window.ethereum becomes available
-      if (window.ethereum?.on && !globalEventCleanup.some(cleanup => 
-        cleanup.toString().includes('handleGlobalAccountsChanged')
-      )) {
-        debugLog('Re-setting up global event listeners after provider injection');
+      if (
+        window.ethereum?.on &&
+        !globalEventCleanup.some(cleanup =>
+          cleanup.toString().includes('handleGlobalAccountsChanged')
+        )
+      ) {
+        debugLog(
+          'Re-setting up global event listeners after provider injection'
+        );
         setupEventListeners();
       }
     };
@@ -280,9 +268,7 @@ export function useWeb3Provider(
 
       // SECURITY: Validate accounts before updating state
       const validAccounts = Array.isArray(newAccounts)
-        ? newAccounts.filter(
-            account => account && typeof account === 'string'
-          )
+        ? newAccounts.filter(account => account && typeof account === 'string')
         : [];
 
       setAccounts(validAccounts);
@@ -297,7 +283,9 @@ export function useWeb3Provider(
       } else {
         // If we have accounts but no current provider, try to detect and connect
         if (!currentProvider && window.ethereum) {
-          debugLog('Accounts available but no provider connected, attempting to detect provider');
+          debugLog(
+            'Accounts available but no provider connected, attempting to detect provider'
+          );
           detectProvidersCallback();
         }
       }
@@ -305,7 +293,7 @@ export function useWeb3Provider(
 
     // Handle global chain changes from window.ethereum
     const handleGlobalChainChanged = (newChainId: string) => {
-      debugLog('Global chain changed event fired', { 
+      debugLog('Global chain changed event fired', {
         chainId: newChainId,
         currentProvider: currentProvider?.name,
       });
@@ -336,23 +324,34 @@ export function useWeb3Provider(
 
       // Set up event listeners for all provider objects on window (comprehensive approach)
       const allProviderNames = [
-        'ethereum', 'lxx', 'customWallet', 'coinbaseWalletExtension', 
-        'rabby', 'brave', 'trustwallet'
+        'ethereum',
+        'lxx',
+        'customWallet',
+        'coinbaseWalletExtension',
+        'rabby',
+        'brave',
+        'trustwallet',
       ];
-      
+
       allProviderNames.forEach(providerName => {
         const provider = (window as any)[providerName];
         if (provider?.on && typeof provider.request === 'function') {
           const removeChain = () =>
-            provider?.removeListener?.('chainChanged', handleGlobalChainChanged);
+            provider?.removeListener?.(
+              'chainChanged',
+              handleGlobalChainChanged
+            );
           const removeAccounts = () =>
-            provider?.removeListener?.('accountsChanged', handleGlobalAccountsChanged);
+            provider?.removeListener?.(
+              'accountsChanged',
+              handleGlobalAccountsChanged
+            );
 
           provider.on('chainChanged', handleGlobalChainChanged);
           provider.on('accountsChanged', handleGlobalAccountsChanged);
 
           globalEventCleanup.push(removeChain, removeAccounts);
-          
+
           // Special handling for ethereum provider - also add connect event
           if (providerName === 'ethereum') {
             const removeConnect = () =>
@@ -360,7 +359,7 @@ export function useWeb3Provider(
             provider.on('connect', handleEthereumEvent);
             globalEventCleanup.push(removeConnect);
           }
-          
+
           debugLog(`Event listeners attached to window.${providerName}`);
         }
       });
@@ -371,7 +370,7 @@ export function useWeb3Provider(
       };
       window.addEventListener('ethereum#initialized', handleEthereumEvent);
       globalEventCleanup.push(removeEthereumInitialized);
-      
+
       debugLog('Window event listeners attached');
     };
 
@@ -451,10 +450,11 @@ export function useWeb3Provider(
       setStatus('connecting');
 
       try {
-        // Immediate debug output to verify logging is working
-        console.log('🧪 CONNECTION DEBUG - Starting for:', name);
+        // Start performance timer
+        performanceMonitor.startTimer(`connection-${name}`);
+
         debugConnection('Starting connection', { name });
-        debugLog('🔗 Connection starting for provider:', {
+        debugLog('Connection starting for provider', {
           providerName: name,
           timestamp: new Date().toISOString(),
         });
@@ -464,7 +464,7 @@ export function useWeb3Provider(
 
           // Refresh providers right before connecting in case something changed
           const latestProviders = detectProvidersCallback();
-          debugLog('📡 Detected providers:', {
+          debugLog('Detected providers', {
             total: latestProviders.length,
             providers: latestProviders.map(p => ({
               name: p.name,
@@ -573,11 +573,11 @@ export function useWeb3Provider(
           // Create wallet actions to request accounts in the proper location
           const walletActions = createWalletActions(provider, mergedConfig);
 
-          debugLog('📋 Requesting accounts through wallet actions...');
+          debugLog('Requesting accounts through wallet actions');
           // Request accounts through wallet actions (proper separation of concerns)
           const accounts = await walletActions.requestAccounts();
 
-          debugLog('✅ Accounts successfully obtained:', {
+          debugLog('Accounts successfully obtained', {
             count: accounts.length,
             accounts: accounts.map(
               acc => `${acc.slice(0, 6)}...${acc.slice(-4)}`
@@ -609,10 +609,10 @@ export function useWeb3Provider(
               throw new Web3ProviderError(
                 error.message || 'Failed to get chain ID',
                 ERROR_CODES.JSON_RPC_ERROR,
-                { 
-                  method: 'eth_chainId', 
+                {
+                  method: 'eth_chainId',
                   originalError: error,
-                  fallbackError: fallbackError.message
+                  fallbackError: fallbackError.message,
                 }
               );
             }
@@ -633,6 +633,17 @@ export function useWeb3Provider(
         setChainId(result.chainId);
         setStatus('connected');
         setError(null);
+
+        // Record connection time
+        const connectionDuration = performanceMonitor.endTimer(
+          `connection-${name}`
+        );
+        if (connectionDuration !== null) {
+          performanceMonitor.recordConnectionTime(connectionDuration);
+          debugLog('Connection completed', {
+            duration: `${connectionDuration.toFixed(2)}ms`,
+          });
+        }
 
         return {
           accounts: result.accounts,
@@ -744,7 +755,7 @@ export function useWeb3Provider(
         closeModal();
       } catch (err) {
         // Error is already handled in connect function
-        console.warn('Modal provider selection failed:', err);
+        logger.warn('Modal provider selection failed', err);
       }
     },
     [connect, closeModal]

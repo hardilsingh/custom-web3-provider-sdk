@@ -32,7 +32,7 @@ import { Web3ProviderConfig, UseWeb3ProviderReturn } from './types';
  *   preferred: ['customwallet'],
  *   autoConnect: true,
  *   debug: true,
- *   onError: (error) => console.error('Provider error:', error)
+ *   onError: (error) => logger.error('Provider error:', error)
  * });
  * ```
  */

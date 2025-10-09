@@ -6,6 +6,8 @@ const types_1 = require("./types");
 const constants_1 = require("./constants");
 const providerUtils_1 = require("./providerUtils");
 const walletActions_1 = require("./walletActions");
+const logger_1 = require("./utils/logger");
+const performance_1 = require("./utils/performance");
 /**
  * A comprehensive hook for managing Web3 providers with enhanced error handling,
  * retry mechanisms, and comprehensive wallet functionality.
@@ -39,7 +41,7 @@ const walletActions_1 = require("./walletActions");
  *   preferred: ['customwallet'],
  *   autoConnect: true,
  *   debug: true,
- *   onError: (error) => console.error('Provider error:', error)
+ *   onError: (error) => logger.error('Provider error:', error)
  * });
  * ```
  */
@@ -71,45 +73,24 @@ function useWeb3Provider(config = {}) {
         // Immediately enable debug for wallet actions if requested
         if (configValues.debug) {
             window.web3DebugEnabled = true;
-            console.log('🔧 DEBUG LOGGING ACTIVE - Web3 Provider SDK');
-            console.log('🔧 DEBUG =', configValues.debug);
-        }
-        else {
-            console.log('❌ Debug logging OFF');
         }
         return configValues;
     }, [config]);
     // Enhanced debug logging utility
+    const logger = (0, react_1.useMemo)(() => (0, logger_1.getLogger)(mergedConfig.debug), [mergedConfig.debug]);
     const debugLog = (0, react_1.useCallback)((message, data) => {
-        if (mergedConfig.debug) {
-            // Enable debug for wallet actions
-            if (typeof window !== 'undefined') {
-                window.web3DebugEnabled = true;
-            }
-            const timestamp = new Date().toISOString().split('T')[1]?.split('.')[0] || '';
-            console.log(`[🚀 Web3 Provider SDK - ${timestamp}] ${message}`, data || '');
-        }
-        else {
-            // Disable debug for wallet actions
-            if (typeof window !== 'undefined') {
-                window.web3DebugEnabled = false;
-            }
-        }
-    }, [mergedConfig.debug]);
+        logger.debug(message, data);
+    }, [logger]);
     // Detailed connection logging
     const debugConnection = (0, react_1.useCallback)((stage, details = {}) => {
-        if (mergedConfig.debug) {
-            console.group(`🔌 Connection: ${stage}`);
-            console.table({
-                'Current Status': status,
-                'Provider Name': details.name || 'None',
-                'Provider Type': details.providerType || 'Unknown',
-                Event: stage,
-                ...details,
-            });
-            console.groupEnd();
-        }
-    }, [mergedConfig.debug, status]);
+        logger.group(`Connection: ${stage}`, {
+            'Current Status': status,
+            'Provider Name': details.name || 'None',
+            'Provider Type': details.providerType || 'Unknown',
+            Event: stage,
+            ...details,
+        });
+    }, [logger, status]);
     // Error handling utility
     const handleError = (0, react_1.useCallback)((error, context) => {
         const web3Error = error instanceof types_1.Web3ProviderError
@@ -198,7 +179,8 @@ function useWeb3Provider(config = {}) {
             debugLog('Provider injection event detected, refreshing providers');
             detectProvidersCallback();
             // Re-setup event listeners if window.ethereum becomes available
-            if (window.ethereum?.on && !globalEventCleanup.some(cleanup => cleanup.toString().includes('handleGlobalAccountsChanged'))) {
+            if (window.ethereum?.on &&
+                !globalEventCleanup.some(cleanup => cleanup.toString().includes('handleGlobalAccountsChanged'))) {
                 debugLog('Re-setting up global event listeners after provider injection');
                 setupEventListeners();
             }
@@ -261,8 +243,13 @@ function useWeb3Provider(config = {}) {
             globalEventCleanup = [];
             // Set up event listeners for all provider objects on window (comprehensive approach)
             const allProviderNames = [
-                'ethereum', 'lxx', 'customWallet', 'coinbaseWalletExtension',
-                'rabby', 'brave', 'trustwallet'
+                'ethereum',
+                'lxx',
+                'customWallet',
+                'coinbaseWalletExtension',
+                'rabby',
+                'brave',
+                'trustwallet',
             ];
             allProviderNames.forEach(providerName => {
                 const provider = window[providerName];
@@ -355,10 +342,10 @@ function useWeb3Provider(config = {}) {
         setError(null);
         setStatus('connecting');
         try {
-            // Immediate debug output to verify logging is working
-            console.log('🧪 CONNECTION DEBUG - Starting for:', name);
+            // Start performance timer
+            performance_1.performanceMonitor.startTimer(`connection-${name}`);
             debugConnection('Starting connection', { name });
-            debugLog('🔗 Connection starting for provider:', {
+            debugLog('Connection starting for provider', {
                 providerName: name,
                 timestamp: new Date().toISOString(),
             });
@@ -366,7 +353,7 @@ function useWeb3Provider(config = {}) {
                 debugConnection('Refreshing providers', { name });
                 // Refresh providers right before connecting in case something changed
                 const latestProviders = detectProvidersCallback();
-                debugLog('📡 Detected providers:', {
+                debugLog('Detected providers', {
                     total: latestProviders.length,
                     providers: latestProviders.map(p => ({
                         name: p.name,
@@ -450,10 +437,10 @@ function useWeb3Provider(config = {}) {
                 debugConnection('Requesting accounts', { name });
                 // Create wallet actions to request accounts in the proper location
                 const walletActions = (0, walletActions_1.createWalletActions)(provider, mergedConfig);
-                debugLog('📋 Requesting accounts through wallet actions...');
+                debugLog('Requesting accounts through wallet actions');
                 // Request accounts through wallet actions (proper separation of concerns)
                 const accounts = await walletActions.requestAccounts();
-                debugLog('✅ Accounts successfully obtained:', {
+                debugLog('Accounts successfully obtained', {
                     count: accounts.length,
                     accounts: accounts.map(acc => `${acc.slice(0, 6)}...${acc.slice(-4)}`),
                     timestamp: new Date().toISOString(),
@@ -477,7 +464,7 @@ function useWeb3Provider(config = {}) {
                         throw new types_1.Web3ProviderError(error.message || 'Failed to get chain ID', constants_1.ERROR_CODES.JSON_RPC_ERROR, {
                             method: 'eth_chainId',
                             originalError: error,
-                            fallbackError: fallbackError.message
+                            fallbackError: fallbackError.message,
                         });
                     }
                 }
@@ -494,6 +481,14 @@ function useWeb3Provider(config = {}) {
             setChainId(result.chainId);
             setStatus('connected');
             setError(null);
+            // Record connection time
+            const connectionDuration = performance_1.performanceMonitor.endTimer(`connection-${name}`);
+            if (connectionDuration !== null) {
+                performance_1.performanceMonitor.recordConnectionTime(connectionDuration);
+                debugLog('Connection completed', {
+                    duration: `${connectionDuration.toFixed(2)}ms`,
+                });
+            }
             return {
                 accounts: result.accounts,
                 chainId: result.chainId,
@@ -588,7 +583,7 @@ function useWeb3Provider(config = {}) {
         }
         catch (err) {
             // Error is already handled in connect function
-            console.warn('Modal provider selection failed:', err);
+            logger.warn('Modal provider selection failed', err);
         }
     }, [connect, closeModal]);
     // Utility functions for address formatting and validation
