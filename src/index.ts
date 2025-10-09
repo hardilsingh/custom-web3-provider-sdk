@@ -18,6 +18,12 @@ export {
   isNode,
   getEnvValue,
 } from './utils/env';
+export {
+  saveConnection,
+  getSavedConnection,
+  clearConnection,
+  hasStoredConnection,
+} from './utils/storage';
 
 // Debug helper exports
 export { applyDebugConfig, DEBUG_CONFIG } from './debugConfig';

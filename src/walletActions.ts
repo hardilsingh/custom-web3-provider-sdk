@@ -659,11 +659,35 @@ export const createWalletActions = (
           );
         }
 
+        // Convert message to hex format if needed
+        let messageToSign = sanitizedMessage;
+        if (!sanitizedMessage.startsWith('0x')) {
+          // Convert string to hex
+          const encoder = new TextEncoder();
+          const bytes = encoder.encode(sanitizedMessage);
+          messageToSign =
+            '0x' +
+            Array.from(bytes)
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+        }
+
+        debugWalletAction('Signing message', {
+          from,
+          messageLength: sanitizedMessage.length,
+          messageHex: messageToSign.substring(0, 20) + '...',
+        });
+
         const signature = await safeProviderRequest<string>(
           provider,
           'personal_sign',
-          [sanitizedMessage, from]
+          [messageToSign, from],
+          config?.requestTimeout || 60000 // Increase timeout for user interaction
         );
+
+        debugWalletAction('Message signed successfully', {
+          signatureLength: signature?.length,
+        });
 
         return signature;
       } catch (error) {
@@ -699,11 +723,25 @@ export const createWalletActions = (
           );
         }
 
+        // Convert typedData to string if it's an object
+        const typedDataString =
+          typeof typedData === 'string' ? typedData : JSON.stringify(typedData);
+
+        debugWalletAction('Signing typed data', {
+          from,
+          typedDataLength: typedDataString.length,
+        });
+
         const signature = await safeProviderRequest<string>(
           provider,
           'eth_signTypedData_v4',
-          [from, typedData]
+          [from, typedDataString],
+          config?.requestTimeout || 60000 // Increase timeout for user interaction
         );
+
+        debugWalletAction('Typed data signed successfully', {
+          signatureLength: signature?.length,
+        });
 
         return signature;
       } catch (error) {
@@ -849,16 +887,22 @@ export const createWalletActions = (
      */
     switchToDefaultNetwork: async (): Promise<void> => {
       try {
-        await safeProviderRequest(provider, 'wallet_switchEthereumChain', [
-          { chainId: DEFAULT_NETWORK.chainId },
-        ]);
+        await safeProviderRequest(
+          provider,
+          'wallet_switchEthereumChain',
+          [{ chainId: DEFAULT_NETWORK.chainId }],
+          60000 // 60 second timeout for user interaction
+        );
       } catch (error: any) {
         // If the network is not added, try to add it
         if (error.code === 4902) {
           try {
-            await safeProviderRequest(provider, 'wallet_addEthereumChain', [
-              DEFAULT_NETWORK,
-            ]);
+            await safeProviderRequest(
+              provider,
+              'wallet_addEthereumChain',
+              [DEFAULT_NETWORK],
+              60000 // 60 second timeout for user interaction
+            );
           } catch {
             throw new NetworkError(
               'Failed to add default network',
@@ -883,20 +927,46 @@ export const createWalletActions = (
       params: any[] = []
     ): Promise<T> => {
       try {
+        // Use longer timeout for wallet interaction methods
+        const isWalletInteraction =
+          method.includes('wallet_') ||
+          method.includes('personal_sign') ||
+          method.includes('eth_sign');
+
+        const timeout = isWalletInteraction
+          ? 90000 // 90 seconds for wallet interactions (add/switch chain, signing)
+          : config?.requestTimeout || 30000;
+
+        debugWalletAction(`customRequest: ${method}`, {
+          params,
+          timeout,
+          isWalletInteraction,
+        });
+
         const result = await safeProviderRequest<T>(
           provider,
           method as any,
-          params
+          params,
+          timeout
         );
+
+        debugWalletAction(`customRequest success: ${method}`, {
+          resultType: typeof result,
+        });
+
         return result;
       } catch (error) {
+        debugWalletAction(`customRequest failed: ${method}`, {
+          error: error instanceof Error ? error.message : error,
+        });
+
         if (error instanceof Web3ProviderError) {
           throw error;
         }
         throw new Web3ProviderError(
           `Custom request failed: ${method}`,
           ERROR_CODES.JSON_RPC_ERROR,
-          { method, params }
+          { method, params, error }
         );
       }
     },

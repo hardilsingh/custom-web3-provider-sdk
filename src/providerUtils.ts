@@ -315,34 +315,18 @@ export const safeProviderRequest = async <T = any>(
     const timeoutPromise = createTimeoutPromise(timeoutMs);
 
     const result = await Promise.race([requestPromise, timeoutPromise]);
-    logger.debug('Provider request result', { method, result: typeof result });
 
-    // Handle non-standard response formats (e.g., LXX wallet)
-    // Format 1: { result: [...], method: "...", ... }
-    if (
-      result &&
-      typeof result === 'object' &&
-      'result' in result &&
-      result.result !== undefined
-    ) {
-      logger.debug(
-        'Non-standard provider response (result) detected, extracting result'
-      );
+    // Handle trustwallet response format
+    if (result && typeof result === 'object' && 'result' in result) {
       return result.result as T;
     }
 
-    // Format 2: { type: "success", data: [...] }
-    if (
-      result &&
-      typeof result === 'object' &&
-      'data' in result &&
-      result.data !== undefined
-    ) {
-      logger.debug(
-        'Non-standard provider response (data) detected, extracting data'
-      );
+    // Handle customwallet response format
+    if (result && typeof result === 'object' && 'data' in result) {
       return result.data as T;
     }
+
+    logger.debug('Provider request result', { method, result });
 
     return result;
   } catch (error: any) {

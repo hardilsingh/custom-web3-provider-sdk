@@ -83,6 +83,7 @@ export class NetworkError extends Web3ProviderError {
  * Provider connection status
  */
 export type ProviderStatus =
+  | 'detecting'
   | 'disconnected'
   | 'connecting'
   | 'connected'
@@ -119,6 +120,8 @@ export interface EthereumProvider {
   removeListener?: (event: string, handler: (...args: any[]) => void) => void;
   removeAllListeners?: (event?: string) => void;
   isConnected?: () => boolean;
+  // EIP-1193 optional methods
+  enable?: () => Promise<string[]>;
   selectedAddress?: string;
   chainId?: string;
   networkVersion?: string;

@@ -14,3 +14,15 @@ declare const process:
       };
     }
   | undefined;
+
+declare const TextEncoder: {
+  new (): {
+    encode(input: string): Uint8Array;
+  };
+};
+
+declare const performance:
+  | {
+      now(): number;
+    }
+  | undefined;

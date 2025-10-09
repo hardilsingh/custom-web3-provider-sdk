@@ -1,6 +1,6 @@
 {
   "name": "custom-web3-provider-sdk",
-  "version": "1.0.24",
+  "version": "1.0.30",
   "description": "Universal Web3 Provider SDK. A robust, production-ready JavaScript/TypeScript SDK that provides comprehensive wallet connection utilities for blockchain applications with enhanced error handling, retry mechanisms, and comprehensive wallet functionality.",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -17,10 +17,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "npm run build:cjs",
+    "build": "npm run build:esm",
     "build:cjs": "tsc --project tsconfig.cjs.json",
     "build:esm": "tsc --project tsconfig.esm.json",
-    "build:watch": "tsc --watch",
+    "build:watch": "tsc --project tsconfig.cjs.json --watch",
+    "dev": "npm run build:watch",
+    "demo": "npm run build && cd demo && npm run dev",
+    "demo:fresh": "./rebuild-demo.sh",
     "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "prepublishOnly": "npm run build",

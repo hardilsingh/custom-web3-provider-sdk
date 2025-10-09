@@ -1,7 +1,7 @@
 {
   "name": "demo",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,7 @@
     "fresh:install": "rm -rf node_modules package-lock.json && npm install"
   },
   "dependencies": {
-    "custom-web3-provider-sdk": "^1.0.24",
+    "custom-web3-provider-sdk": "^1.0.30",
     "install": "^0.13.0",
     "npm": "^11.6.1",
     "react": "^19.1.1",

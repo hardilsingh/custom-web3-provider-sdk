@@ -10,4 +10,5 @@ export { getLogger, logger } from './utils/logger';
 export { errorTracker } from './utils/errorTracking';
 export { performanceMonitor } from './utils/performance';
 export { ENV, getEnvironment, isBrowser, isNode, getEnvValue, } from './utils/env';
+export { saveConnection, getSavedConnection, clearConnection, hasStoredConnection, } from './utils/storage';
 export { applyDebugConfig, DEBUG_CONFIG } from './debugConfig';

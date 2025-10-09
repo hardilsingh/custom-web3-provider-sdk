@@ -19,6 +19,11 @@ import {
 import { createWalletActions } from './walletActions';
 import { getLogger } from './utils/logger';
 import { performanceMonitor } from './utils/performance';
+import {
+  saveConnection,
+  getSavedConnection,
+  clearConnection,
+} from './utils/storage';
 
 /**
  * A comprehensive hook for managing Web3 providers with enhanced error handling,
@@ -76,6 +81,7 @@ export function useWeb3Provider(
   const cleanupRef = useRef<(() => void) | null>(null);
   const retryCountRef = useRef<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoConnectAttemptedRef = useRef<boolean>(false);
 
   // Merge with default config
   const mergedConfig = useMemo(() => {
@@ -137,12 +143,30 @@ export function useWeb3Provider(
             );
 
       setError(web3Error);
-      setStatus('error');
+
+      // Only set status to 'error' for critical connection errors
+      // Don't change status for user rejections, transaction errors, etc.
+      const isCriticalError =
+        web3Error.code === ERROR_CODES.PROVIDER_NOT_FOUND ||
+        web3Error.code === ERROR_CODES.PROVIDER_NOT_CONNECTED ||
+        web3Error.code === ERROR_CODES.NETWORK_ERROR ||
+        (context?.includes('connect') &&
+          web3Error.code !== ERROR_CODES.USER_REJECTED);
+
+      if (isCriticalError && status === 'connecting') {
+        setStatus('error');
+      }
+      // Otherwise keep current status (connected, disconnected, etc.)
+
       mergedConfig.onError?.(web3Error);
 
-      debugLog('Error occurred', { error: web3Error, context });
+      debugLog('Error occurred', {
+        error: web3Error,
+        context,
+        critical: isCriticalError,
+      });
     },
-    [mergedConfig, debugLog]
+    [mergedConfig, debugLog, status]
   );
 
   // Enhanced provider detection with callback support
@@ -274,12 +298,10 @@ export function useWeb3Provider(
       setAccounts(validAccounts);
       mergedConfig.onAccountsChanged?.(validAccounts);
 
-      // Reset provider state if no valid accounts
+      // Don't auto-disconnect on empty accounts - user might have just rejected a request
+      // or switched to a locked wallet. Keep the connection alive.
       if (validAccounts.length === 0) {
-        debugLog('No accounts available, resetting provider state');
-        setCurrentProvider(null);
-        setChainId(null);
-        setStatus('disconnected');
+        debugLog('No accounts available, but keeping connection alive');
       } else {
         // If we have accounts but no current provider, try to detect and connect
         if (!currentProvider && window.ethereum) {
@@ -376,16 +398,61 @@ export function useWeb3Provider(
 
     setupEventListeners();
 
-    // Auto-connect if enabled
-    if (mergedConfig.autoConnect) {
+    // Auto-connect if enabled OR if there's a saved connection
+    // Only attempt once per component lifetime
+    const shouldAutoConnect =
+      !autoConnectAttemptedRef.current &&
+      (mergedConfig.autoConnect || getSavedConnection() !== null);
+
+    if (shouldAutoConnect) {
+      autoConnectAttemptedRef.current = true; // Mark as attempted immediately
+
       const autoConnect = async () => {
         try {
-          const preferredProvider = getPreferredProvider();
-          if (preferredProvider) {
-            debugLog('Auto-connecting to preferred provider', {
-              name: preferredProvider.name,
+          // First try to reconnect to saved provider
+          const savedProvider = getSavedConnection();
+          if (savedProvider) {
+            debugLog('Attempting to reconnect to saved provider', {
+              name: savedProvider,
             });
-            await connect(preferredProvider.name);
+
+            const latestProviders = detectProvidersCallback();
+            const providerExists = latestProviders.find(
+              p => p.name === savedProvider
+            );
+
+            if (providerExists) {
+              try {
+                await connect(savedProvider as WalletProviderName);
+                debugLog('Successfully reconnected to saved provider', {
+                  name: savedProvider,
+                });
+                return;
+              } catch (error) {
+                debugLog('Failed to reconnect to saved provider', {
+                  error,
+                  name: savedProvider,
+                });
+                // Clear invalid connection
+                clearConnection();
+              }
+            } else {
+              debugLog('Saved provider no longer available', {
+                name: savedProvider,
+              });
+              clearConnection();
+            }
+          }
+
+          // Fallback to preferred provider if autoConnect is enabled
+          if (mergedConfig.autoConnect) {
+            const preferredProvider = getPreferredProvider();
+            if (preferredProvider) {
+              debugLog('Auto-connecting to preferred provider', {
+                name: preferredProvider.name,
+              });
+              await connect(preferredProvider.name);
+            }
           }
         } catch (error) {
           debugLog('Auto-connect failed', { error });
@@ -435,12 +502,8 @@ export function useWeb3Provider(
         debugLog('Error during global event cleanup', { error: cleanupError });
       }
     };
-  }, [
-    detectProvidersCallback,
-    mergedConfig.checkInterval,
-    mergedConfig.autoConnect,
-    debugLog,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Connect to a specific provider with enhanced error handling and retry logic
   const connect = useCallback(
@@ -521,12 +584,9 @@ export function useWeb3Provider(
               setAccounts(validAccounts);
               mergedConfig.onAccountsChanged?.(validAccounts);
 
-              // Reset provider state if no valid accounts
+              // Don't auto-disconnect - user might have denied a request
               if (validAccounts.length === 0) {
-                debugLog('No accounts available, resetting provider state');
-                setCurrentProvider(null);
-                setChainId(null);
-                setStatus('disconnected');
+                debugLog('No accounts available, but keeping connection alive');
               }
             },
             onChainChanged: newChainId => {
@@ -542,23 +602,43 @@ export function useWeb3Provider(
               }
             },
             onDisconnect: err => {
-              debugLog('Provider disconnected', { error: err });
-              const error =
-                err instanceof Error ? err : new Error(JSON.stringify(err));
-              const web3Error =
-                error instanceof Web3ProviderError
-                  ? error
-                  : new Web3ProviderError(
-                      error.message || 'Provider disconnected',
-                      ERROR_CODES.NETWORK_ERROR,
-                      { originalError: error }
-                    );
-              setError(web3Error);
-              setStatus('disconnected');
-              setCurrentProvider(null);
-              setAccounts([]);
-              setChainId(null);
-              mergedConfig.onDisconnect?.(err);
+              debugLog('Provider disconnect event received', { error: err });
+
+              // Only actually disconnect if this is a real disconnect (wallet locked/removed)
+              // Not on every error or user rejection
+              // Check if error code indicates actual disconnection
+              const isRealDisconnect =
+                err?.code === 4900 || // Disconnected from chain
+                err?.code === 4901 || // Chain disconnected
+                err?.code === -32002 || // Request already pending
+                (typeof err === 'string' && err.includes('disconnect'));
+
+              if (isRealDisconnect) {
+                debugLog('Real disconnect detected, clearing connection');
+                const error =
+                  err instanceof Error ? err : new Error(JSON.stringify(err));
+                const web3Error =
+                  error instanceof Web3ProviderError
+                    ? error
+                    : new Web3ProviderError(
+                        error.message || 'Provider disconnected',
+                        ERROR_CODES.NETWORK_ERROR,
+                        { originalError: error }
+                      );
+                setError(web3Error);
+                setStatus('disconnected');
+                setCurrentProvider(null);
+                setAccounts([]);
+                setChainId(null);
+                clearConnection(); // Clear from localStorage
+                mergedConfig.onDisconnect?.(err);
+              } else {
+                debugLog('Non-critical disconnect event, keeping connection', {
+                  error: err,
+                });
+                // Just notify about the error but don't disconnect
+                mergedConfig.onDisconnect?.(err);
+              }
             },
             onError: error => {
               handleError(error, 'provider event');
@@ -645,6 +725,10 @@ export function useWeb3Provider(
           });
         }
 
+        // Save connection to localStorage for persistence
+        saveConnection(name);
+        debugLog('Connection saved to localStorage', { provider: name });
+
         return {
           accounts: result.accounts,
           chainId: result.chainId,
@@ -653,7 +737,7 @@ export function useWeb3Provider(
         };
       } catch (err) {
         handleError(err, `connect to ${name}`);
-        setStatus('error');
+        // Status is set by handleError based on error type
         throw err;
       } finally {
         setIsConnecting(false);
@@ -683,6 +767,10 @@ export function useWeb3Provider(
         cleanupRef.current();
         cleanupRef.current = null;
       }
+
+      // Clear saved connection from localStorage
+      clearConnection();
+      debugLog('Cleared saved connection from localStorage');
 
       // Reset state
       setCurrentProvider(null);
@@ -734,10 +822,8 @@ export function useWeb3Provider(
   // Clear error function
   const clearError = useCallback(() => {
     setError(null);
-    if (status === 'error') {
-      setStatus('disconnected');
-    }
-  }, [status]);
+    // Don't change status on error clear - keep existing connection status
+  }, []);
 
   // Modal functions
   const openModal = useCallback(() => {

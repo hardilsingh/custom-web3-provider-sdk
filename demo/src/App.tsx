@@ -1,6 +1,54 @@
 import { useState, useEffect } from 'react';
 import { useWeb3Provider, ProviderSelectModal } from 'custom-web3-provider-sdk';
 
+// Network configurations
+const NETWORKS = {
+  ethereum: {
+    chainId: '0x1',
+    chainName: 'Ethereum Mainnet',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    rpcUrls: ['https://mainnet.infura.io/v3/'],
+    blockExplorerUrls: ['https://etherscan.io'],
+  },
+  polygon: {
+    chainId: '0x89',
+    chainName: 'Polygon Mainnet',
+    nativeCurrency: {
+      name: 'MATIC',
+      symbol: 'MATIC',
+      decimals: 18,
+    },
+    rpcUrls: ['https://polygon-rpc.com/'],
+    blockExplorerUrls: ['https://polygonscan.com/'],
+  },
+  bnb: {
+    chainId: '0x38',
+    chainName: 'BNB Smart Chain',
+    nativeCurrency: {
+      name: 'BNB',
+      symbol: 'BNB',
+      decimals: 18,
+    },
+    rpcUrls: ['https://bsc-dataseed1.binance.org'],
+    blockExplorerUrls: ['https://bscscan.com'],
+  },
+  sepolia: {
+    chainId: '0xaa36a7',
+    chainName: 'Sepolia Testnet',
+    nativeCurrency: {
+      name: 'Sepolia Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    rpcUrls: ['https://sepolia.infura.io/v3/'],
+    blockExplorerUrls: ['https://sepolia.etherscan.io'],
+  },
+};
+
 function Web3DemoApp() {
   const {
     providers,
@@ -134,12 +182,12 @@ function Web3DemoApp() {
     estimateGas: false,
   });
 
-  // Auto-fetch demo info when connected
+  // Auto-fetch demo info when connected or when we have a provider with accounts
   useEffect(() => {
-    if (status === 'connected' && accounts[0]) {
+    if ((status === 'connected' || (status === 'error' && currentProvider)) && accounts[0]) {
       fetchDemoInfo();
     }
-  }, [status, accounts]);
+  }, [status, accounts, currentProvider]);
 
   const fetchDemoInfo = async () => {
     if (!getBalance || !customRequest || !getTransactionCount) return;
@@ -379,6 +427,85 @@ function Web3DemoApp() {
     }
   };
 
+  // Network switching handler
+  const handleSwitchNetwork = async (networkKey: keyof typeof NETWORKS) => {
+    if (!customRequest) {
+      alert('Please connect wallet first');
+      return;
+    }
+
+    setLoading(prev => ({ ...prev, customRequest: true }));
+    
+    try {
+      const network = NETWORKS[networkKey];
+      
+      addEventLog(`🔄 Switching to ${network.chainName}...`, 'info');
+      console.log('🔄 Attempting to switch to:', network);
+      
+      try {
+        // Try to switch to the network
+        console.log('🔄 Calling wallet_switchEthereumChain...');
+        const switchResult = await customRequest('wallet_switchEthereumChain', [
+          { chainId: network.chainId }
+        ]);
+        
+        console.log('✅ Switch successful, result:', switchResult);
+        addEventLog(`✅ Switched to ${network.chainName}`, 'success');
+        
+        // Wait a moment for the chainChanged event to fire
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        alert(`✅ Switched to ${network.chainName}`);
+      } catch (switchError: any) {
+        console.log('Switch error details:', {
+          code: switchError.code,
+          message: switchError.message,
+          error: switchError
+        });
+        
+        // If network doesn't exist (error 4902 or message contains "unrecognized"), add it
+        const needsToAddNetwork = 
+          switchError.code === 4902 || 
+          switchError.message?.toLowerCase().includes('unrecognized') ||
+          switchError.message?.toLowerCase().includes('try adding the chain');
+        
+        if (needsToAddNetwork) {
+          addEventLog(`📝 Network not found, adding ${network.chainName}...`, 'info');
+          console.log('📝 Adding network:', network);
+          
+          try {
+            console.log('🔄 Calling wallet_addEthereumChain...');
+            const addResult = await customRequest('wallet_addEthereumChain', [network]);
+            console.log('✅ Add network successful, result:', addResult);
+            
+            addEventLog(`✅ Added and switched to ${network.chainName}`, 'success');
+            
+            // Wait for chainChanged event to fire
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            alert(`✅ Added and switched to ${network.chainName}`);
+          } catch (addError: any) {
+            console.error('Add network error:', addError);
+            throw new Error(`Failed to add network: ${addError.message}`);
+          }
+        } else if (switchError.code === 4001) {
+          // User rejected the switch
+          addEventLog('⚠️ User rejected network switch', 'error');
+          alert('⚠️ You rejected the network switch');
+          return; // Don't throw, just return
+        } else {
+          throw switchError;
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Network switch failed:', error);
+      addEventLog(`❌ Network switch failed: ${error.message}`, 'error');
+      alert(`❌ Network switch failed: ${error.message}`);
+    } finally {
+      setLoading(prev => ({ ...prev, customRequest: false }));
+    }
+  };
+
   const handleCustomRequest = async () => {
     if (!customRequest) return;
     
@@ -468,7 +595,8 @@ function Web3DemoApp() {
               </div>
             )}
 
-            {status === 'connected' ? (
+            {/* Show connected UI if we have a provider, even if there's an error */}
+            {(status === 'connected' || (status === 'error' && currentProvider)) ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {currentProvider && (
                   <div className="bg-blue-50">
@@ -565,7 +693,8 @@ function Web3DemoApp() {
             )}
 
             <div className="mt-8 flex flex-wrap gap-4">
-              {status === 'connected' ? (
+              {/* Show disconnect button if we have a provider, even during errors */}
+              {(status === 'connected' || (status === 'error' && currentProvider)) ? (
                 <>
                   <button 
                     onClick={disconnect}
@@ -597,13 +726,62 @@ function Web3DemoApp() {
             </div>
           </div>
 
-          {/* Connected State - Show all functionality */}
-          {status === 'connected' && (
+          {/* Connected State - Show all functionality - Keep visible during errors */}
+          {(status === 'connected' || (status === 'error' && currentProvider)) && (
             <>
+              {/* Network Switching Section */}
+              <div className="card mb-8">
+                <h2 className="text-3xl font-bold text-white mb-6 flex items-center">
+                  🌐 Network Switching
+                </h2>
+                <p className="text-gray-300 mb-6">
+                  Switch between different blockchain networks. If a network isn't added to your wallet, it will be added automatically.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Object.entries(NETWORKS).map(([key, network]) => (
+                    <button
+                      key={key}
+                      onClick={() => handleSwitchNetwork(key as keyof typeof NETWORKS)}
+                      disabled={loading.customRequest}
+                      className={`btn ${
+                        chainId === network.chainId 
+                          ? 'btn-success border-2 border-green-400' 
+                          : 'btn-primary'
+                      } flex flex-col items-center justify-center py-6 relative`}
+                    >
+                      {chainId === network.chainId && (
+                        <span className="absolute top-2 right-2 text-green-400">✓</span>
+                      )}
+                      <div className="text-3xl mb-2">
+                        {key === 'ethereum' && '⟠'}
+                        {key === 'polygon' && '🟣'}
+                        {key === 'bnb' && '🟡'}
+                        {key === 'sepolia' && '🧪'}
+                      </div>
+                      <div className="font-bold text-lg">{network.chainName}</div>
+                      <div className="text-sm opacity-75 mt-1">
+                        Chain ID: {parseInt(network.chainId, 16)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {chainId && (
+                  <div className="mt-6 p-4 bg-blue-900/30 rounded-lg border border-blue-700">
+                    <div className="text-blue-300 text-sm">
+                      <strong>Current Network:</strong>{' '}
+                      {Object.values(NETWORKS).find(n => n.chainId === chainId)?.chainName || 
+                        `Unknown (Chain ID: ${parseInt(chainId, 16)})`}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Main Functionality Tests */}
               <div className="card">
                 <h2 className="text-3xl font-bold text-white mb-8 flex items-center">
-                  Wallet Functionality Testing
+                  🔧 Wallet Functionality Testing
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
@@ -978,7 +1156,7 @@ function Web3DemoApp() {
                         <span className="text-gray-300">Status:</span>
                         <span className={`font-semibold ${
                           status === 'connected' ? 'text-green-400' : 
-                          status === 'connecting' ? 'text-yellow-400' : 
+                          status === 'error' ? 'text-yellow-400' : 
                           'text-red-400'
                         }`}>
                           {status.toUpperCase()}
